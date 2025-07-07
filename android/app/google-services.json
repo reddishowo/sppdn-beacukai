@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "9214540785",
+    "project_id": "sppdn-beacukai",
+    "storage_bucket": "sppdn-beacukai.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:9214540785:android:876ec56a573817850b6250",
+        "android_client_info": {
+          "package_name": "beacukai.go.id.sppdn"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCqsFslz5diItstaAqukhQJLZ3NpQ5B7UY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
