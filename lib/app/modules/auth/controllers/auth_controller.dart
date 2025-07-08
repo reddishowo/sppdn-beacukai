@@ -1,3 +1,6 @@
+// File: /sppdn/lib/app/modules/auth/controllers/auth_controller.dart (Versi Final)
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:get/get.dart';
@@ -6,6 +9,7 @@ class AuthController extends GetxController {
   static AuthController instance = Get.find();
   
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   late final GoogleSignIn _googleSignIn;
   
   Rxn<User> firebaseUser = Rxn<User>();
@@ -20,7 +24,6 @@ class AuthController extends GetxController {
   void _initializeGoogleSignIn() {
     _googleSignIn = GoogleSignIn(
       scopes: ['email', 'profile'],
-      // Remove clientId for now, let it auto-detect
     );
   }
   
@@ -32,7 +35,8 @@ class AuthController extends GetxController {
   }
   
   void _setInitialScreen(User? user) {
-    Future.delayed(const Duration(milliseconds: 100), () {
+    // Beri sedikit jeda agar update profil (seperti displayName) sempat diterima oleh stream
+    Future.delayed(const Duration(seconds: 1), () {
       if (user == null) {
         if (Get.currentRoute != '/login' && Get.currentRoute != '/register') {
           Get.offAllNamed('/login');
@@ -45,37 +49,96 @@ class AuthController extends GetxController {
     });
   }
   
-  // Register with email and password
-  Future<void> register(String email, String password) async {
+  // Helper untuk menambah/memperbarui data pengguna di Firestore dan profil Auth
+  Future<void> _addUserDataToFirestore(User user, {String? name}) async {
+    final userName = name ?? user.displayName ?? 'Unnamed User';
+    print("--> Preparing to add user data to Firestore. UID: ${user.uid}, Name: $userName");
+
+    try {
+      // 1. Tulis data ke Firestore
+      final userDoc = _firestore.collection('users').doc(user.uid);
+      await userDoc.set({
+        'name': userName,
+        'email': user.email,
+        'createdAt': FieldValue.serverTimestamp(),
+        'uid': user.uid,
+      }, SetOptions(merge: true)); // Gunakan merge:true untuk update, bukan menimpa
+      print("--> SUCCESS: Firestore document created/updated for ${user.uid}");
+
+      // 2. Update profil Firebase Auth jika display name masih kosong atau berbeda
+      if (user.displayName == null || user.displayName!.isEmpty || user.displayName != userName) {
+        await user.updateDisplayName(userName);
+        await user.reload(); // Penting: Muat ulang data user agar stream mendeteksi perubahan
+        firebaseUser.value = _auth.currentUser; // Update state GetX secara manual
+        print("--> SUCCESS: Firebase Auth profile displayName updated to '$userName'");
+      }
+    } catch (e) {
+      print("!!! FIRESTORE/PROFILE UPDATE FAILED: $e");
+      Get.snackbar(
+        'Database Error', 
+        'Failed to save user data. Please try again later.', 
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    }
+  }
+
+  Future<void> register(String name, String email, String password) async {
+    print("--> Attempting to register user: $email with name: $name");
+    User? user; // Kita hanya butuh objek User, bukan UserCredential
+
     try {
       isLoading.value = true;
-      await _auth.createUserWithEmailAndPassword(
+      final userCredential = await _auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
-      Get.snackbar(
-        'Success',
-        'Account created successfully!',
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      user = userCredential.user; // Ambil objek User dari hasil
+      print("--> Firebase Auth user created successfully. UID: ${user?.uid}");
+
     } on FirebaseAuthException catch (e) {
-      Get.snackbar(
-        'Error',
-        _getFirebaseErrorMessage(e),
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      print("!!! FIREBASE AUTH REGISTER FAILED: ${e.code} - ${e.message}");
+      Get.snackbar('Error', _getFirebaseErrorMessage(e), snackPosition: SnackPosition.BOTTOM);
+      isLoading.value = false;
+      return;
+
     } catch (e) {
-      Get.snackbar(
-        'Error',
-        'Something went wrong: ${e.toString()}',
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      print("!!! POTENTIAL SWALLOWED EXCEPTION: $e");
+      // Cek jika errornya adalah bug type cast yang diketahui
+      if (e.toString().contains("PigeonUserDetails") || e.toString().contains("List<Object?>")) {
+        print("--> Swallowed exception detected. User likely created. Continuing process.");
+        // Ambil user yang baru saja dibuat, karena prosesnya berhasil meskipun ada error
+        user = _auth.currentUser; // Langsung ambil user yang sedang aktif
+      } else {
+        // Jika ini error lain yang tidak dikenal, tampilkan ke user
+        print("!!! UNKNOWN REGISTER FAILED: $e");
+        Get.snackbar('Error', 'An unknown error occurred: ${e.toString()}', snackPosition: SnackPosition.BOTTOM);
+        isLoading.value = false;
+        return;
+      }
+    }
+
+    // Blok ini akan dieksekusi jika try berhasil ATAU jika bug type cast terjadi
+    try {
+      if (user != null) {
+        await _addUserDataToFirestore(user, name: name);
+        Get.snackbar(
+          'Success',
+          'Account created successfully!',
+          snackPosition: SnackPosition.BOTTOM,
+        );
+      } else {
+        print("!!! CRITICAL ERROR: User creation reported success but user is null.");
+        Get.snackbar('Error', 'Failed to retrieve user after creation.', snackPosition: SnackPosition.BOTTOM);
+      }
+    } catch (e) {
+       print("!!! FIRESTORE/PROFILE UPDATE FAILED AFTER REGISTER: $e");
+       Get.snackbar('Error', 'User created, but failed to save profile data.', snackPosition: SnackPosition.BOTTOM);
     } finally {
       isLoading.value = false;
     }
   }
   
-  // Login with email and password
+  // Login dengan Email dan Password
   Future<void> login(String email, String password) async {
     try {
       isLoading.value = true;
@@ -105,75 +168,39 @@ class AuthController extends GetxController {
     }
   }
   
-  // Fixed Google Sign In - handles type casting error
+  // Login atau Register dengan Google
   Future<void> signInWithGoogle() async {
     try {
       isLoading.value = true;
-      
-      // Sign out first to ensure clean state
       await _googleSignIn.signOut();
       
-      print('Starting Google Sign-In...');
-      
-      // Trigger the authentication flow with proper error handling
-      GoogleSignInAccount? googleUser;
-      
-      try {
-        googleUser = await _googleSignIn.signIn();
-      } catch (e) {
-        print('Google Sign-In selection error: $e');
-        // Handle the type casting error gracefully
-        if (e.toString().contains('PigeonUserDetails')) {
-          print('Type casting error detected, retrying...');
-          await Future.delayed(const Duration(milliseconds: 500));
-          googleUser = await _googleSignIn.signIn();
-        } else {
-          rethrow;
-        }
-      }
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
       
       if (googleUser == null) {
-        print('User cancelled Google Sign-In');
         isLoading.value = false;
         return;
       }
       
-      print('Google user obtained: ${googleUser.email}');
-      
-      // Obtain the auth details from the request
-      GoogleSignInAuthentication googleAuth;
-      
-      try {
-        googleAuth = await googleUser.authentication;
-      } catch (e) {
-        print('Authentication error: $e');
-        // Retry authentication if there's an error
-        await Future.delayed(const Duration(milliseconds: 500));
-        googleAuth = await googleUser.authentication;
-      }
-      
-      print('Access Token: ${googleAuth.accessToken != null ? "✓" : "✗"}');
-      print('ID Token: ${googleAuth.idToken != null ? "✓" : "✗"}');
-      
-      // Check if we have the necessary tokens
-      if (googleAuth.accessToken == null && googleAuth.idToken == null) {
-        throw Exception('Failed to get Google authentication tokens');
-      }
-      
-      // Create a new credential
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
       
-      print('Signing in to Firebase...');
-      
-      // Sign in to Firebase with the Google credential
       final UserCredential userCredential = await _auth.signInWithCredential(credential);
+
+      if (userCredential.user != null) {
+        final docRef = _firestore.collection('users').doc(userCredential.user!.uid);
+        final docSnap = await docRef.get();
+        // Buat/update data di firestore jika user baru atau data belum ada
+        if (!docSnap.exists) {
+           print("--> New Google Sign-In user detected. Creating Firestore document.");
+           await _addUserDataToFirestore(userCredential.user!);
+        } else {
+           print("--> Existing Google Sign-In user. No need to create document.");
+        }
+      }
       
-      print('Firebase sign-in successful: ${userCredential.user?.email}');
-      
-      // Only show success message, don't show the error
       Get.snackbar(
         'Success',
         'Logged in with Google successfully!',
@@ -181,22 +208,12 @@ class AuthController extends GetxController {
       );
       
     } on FirebaseAuthException catch (e) {
-      print('Firebase Auth Error: ${e.code} - ${e.message}');
-      Get.snackbar(
-        'Error',
-        _getFirebaseErrorMessage(e),
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      Get.snackbar('Error', _getFirebaseErrorMessage(e), snackPosition: SnackPosition.BOTTOM);
     } catch (e) {
-      print('Google Sign In Error: $e');
-      // Don't show error if it's the type casting error and login was successful
-      if (!e.toString().contains('PigeonUserDetails') && 
-          !e.toString().contains('List<Object?>')) {
-        Get.snackbar(
-          'Error',
-          'Google sign in failed. Please try again.',
-          snackPosition: SnackPosition.BOTTOM,
-        );
+      // Hindari menampilkan error dari bug 'PigeonUserDetails'
+      if (!e.toString().contains('PigeonUserDetails') && !e.toString().contains('List<Object?>')) {
+        print("!!! GOOGLE SIGN IN FAILED: $e");
+        Get.snackbar('Error', 'Google sign in failed. Please try again.', snackPosition: SnackPosition.BOTTOM);
       }
     } finally {
       isLoading.value = false;
@@ -216,35 +233,24 @@ class AuthController extends GetxController {
         snackPosition: SnackPosition.BOTTOM,
       );
     } catch (e) {
-      print('Sign out error: $e');
-      // Still sign out from Firebase even if Google sign out fails
+      // Jika salah satu gagal, tetap pastikan sign out dari Firebase Auth
       await _auth.signOut();
     }
   }
   
-  // Helper method to get user-friendly error messages
+  // Helper untuk pesan error Firebase yang lebih ramah
   String _getFirebaseErrorMessage(FirebaseAuthException e) {
     switch (e.code) {
-      case 'user-not-found':
-        return 'No user found with this email.';
-      case 'wrong-password':
-        return 'Wrong password provided.';
-      case 'email-already-in-use':
-        return 'An account already exists with this email.';
-      case 'weak-password':
-        return 'Password is too weak.';
-      case 'invalid-email':
-        return 'Invalid email address.';
-      case 'user-disabled':
-        return 'This user account has been disabled.';
-      case 'too-many-requests':
-        return 'Too many requests. Try again later.';
-      case 'operation-not-allowed':
-        return 'Operation not allowed. Please contact support.';
-      case 'invalid-credential':
-        return 'Invalid credentials. Please try again.';
-      default:
-        return e.message ?? 'An error occurred during authentication.';
+      case 'user-not-found': return 'No user found with this email.';
+      case 'wrong-password': return 'Wrong password provided.';
+      case 'email-already-in-use': return 'An account already exists with this email.';
+      case 'weak-password': return 'Password is too weak.';
+      case 'invalid-email': return 'Invalid email address.';
+      case 'user-disabled': return 'This user account has been disabled.';
+      case 'too-many-requests': return 'Too many requests. Try again later.';
+      case 'operation-not-allowed': return 'Operation not allowed. Please contact support.';
+      case 'invalid-credential': return 'Invalid credentials. Please try again.';
+      default: return e.message ?? 'An error occurred during authentication.';
     }
   }
 }
