@@ -49,42 +49,61 @@ class AuthController extends GetxController {
     });
   }
   
-  // Helper untuk menambah/memperbarui data pengguna di Firestore dan profil Auth
-  Future<void> _addUserDataToFirestore(User user, {String? name}) async {
+    Future<void> _addUserDataToFirestore(User user, {String? name}) async {
     final userName = name ?? user.displayName ?? 'Unnamed User';
     print("--> Preparing to add user data to Firestore. UID: ${user.uid}, Name: $userName");
 
+    // Langkah 1: Tulis data ke Firestore
     try {
-      // 1. Tulis data ke Firestore
       final userDoc = _firestore.collection('users').doc(user.uid);
       await userDoc.set({
         'name': userName,
         'email': user.email,
         'createdAt': FieldValue.serverTimestamp(),
         'uid': user.uid,
-      }, SetOptions(merge: true)); // Gunakan merge:true untuk update, bukan menimpa
+      }, SetOptions(merge: true));
       print("--> SUCCESS: Firestore document created/updated for ${user.uid}");
+    } catch (e) {
+      print("!!! FIRESTORE WRITE FAILED: $e");
+      Get.snackbar(
+        'Database Error', 
+        'Failed to save user data to database.', 
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      // Hentikan proses jika penulisan ke firestore gagal
+      return; 
+    }
 
-      // 2. Update profil Firebase Auth jika display name masih kosong atau berbeda
+    // Langkah 2: Update profil Firebase Auth
+    try {
       if (user.displayName == null || user.displayName!.isEmpty || user.displayName != userName) {
         await user.updateDisplayName(userName);
-        await user.reload(); // Penting: Muat ulang data user agar stream mendeteksi perubahan
-        firebaseUser.value = _auth.currentUser; // Update state GetX secara manual
+        await user.reload(); 
+        firebaseUser.value = _auth.currentUser;
         print("--> SUCCESS: Firebase Auth profile displayName updated to '$userName'");
       }
     } catch (e) {
-      print("!!! FIRESTORE/PROFILE UPDATE FAILED: $e");
-      Get.snackbar(
-        'Database Error', 
-        'Failed to save user data. Please try again later.', 
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      // Tangkap dan abaikan HANYA error spesifik 'Pigeon'
+      if (e.toString().contains('PigeonUserInfo') || e.toString().contains('List<Object?>')) {
+        print("--> Swallowed exception during profile update. This is a known bug. Continuing...");
+        // Coba sinkronisasi ulang state secara manual sebagai fallback
+        await _auth.currentUser?.reload();
+        firebaseUser.value = _auth.currentUser;
+      } else {
+        // Jika errornya bukan 'Pigeon', itu adalah masalah nyata. Tampilkan pesannya.
+        print("!!! PROFILE UPDATE FAILED with a different error: $e");
+        Get.snackbar(
+          'Profile Error', 
+          'Failed to update user profile name.', 
+          snackPosition: SnackPosition.BOTTOM,
+        );
+      }
     }
   }
 
   Future<void> register(String name, String email, String password) async {
     print("--> Attempting to register user: $email with name: $name");
-    User? user; // Kita hanya butuh objek User, bukan UserCredential
+    User? user; 
 
     try {
       isLoading.value = true;
@@ -146,23 +165,32 @@ class AuthController extends GetxController {
         email: email,
         password: password,
       );
-      Get.snackbar(
-        'Success',
-        'Logged in successfully!',
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      // Jangan tampilkan snackbar di sini, biarkan _setInitialScreen yang handle navigasi
+      // Get.snackbar(
+      //   'Success',
+      //   'Logged in successfully!',
+      //   snackPosition: SnackPosition.BOTTOM,
+      // );
     } on FirebaseAuthException catch (e) {
       Get.snackbar(
-        'Error',
+        'Login Error',
         _getFirebaseErrorMessage(e),
         snackPosition: SnackPosition.BOTTOM,
       );
     } catch (e) {
-      Get.snackbar(
-        'Error',
-        'Something went wrong: ${e.toString()}',
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      // **INI ADALAH PERBAIKAN UTAMA**
+      // Tangkap dan abaikan bug 'Pigeon' yang bisa muncul saat login
+      if (e.toString().contains('PigeonUserInfo') || e.toString().contains('List<Object?>')) {
+        print("--> Swallowed exception during login. This is a known bug. Login is successful. Continuing...");
+        // Tidak perlu melakukan apa-apa, karena user sudah berhasil login
+      } else {
+        // Jika error lain, tampilkan
+        Get.snackbar(
+          'Error',
+          'Something went wrong: ${e.toString()}',
+          snackPosition: SnackPosition.BOTTOM,
+        );
+      }
     } finally {
       isLoading.value = false;
     }
