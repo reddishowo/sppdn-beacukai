@@ -12,7 +12,20 @@
           "package_name": "beacukai.go.id.sppdn"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "9214540785-90ma2pq3iiocvlcqnd4hou95tukcuo4l.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "beacukai.go.id.sppdn",
+            "certificate_hash": "a0acec3881973a01653dd34bb673e027901b977c"
+          }
+        },
+        {
+          "client_id": "9214540785-k23htras3in5kan9vvsjg8qtn6vamhk3.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyCqsFslz5diItstaAqukhQJLZ3NpQ5B7UY"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "9214540785-c09ni9213u2sddcdqjeuu010qi70gsal.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "9214540785-rnpt1g4e33kkeqj1o9cj9iebl1reo5m3.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "beacukai.go.id.sppdn"
+              }
+            }
+          ]
         }
       }
     }
