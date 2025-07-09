@@ -1,5 +1,6 @@
 import 'package:get/get.dart';
-
+import 'package:sppdn/app/modules/add_activity/bindings/add_activity_binding.dart';
+import 'package:sppdn/app/modules/add_activity/views/add_activity_view.dart';
 import '../modules/home/bindings/home_binding.dart';
 import '../modules/home/views/home_view.dart';
 import '../modules/login/bindings/login_binding.dart';
@@ -8,21 +9,16 @@ import '../modules/profile/bindings/profile_binding.dart';
 import '../modules/profile/views/profile_view.dart';
 import '../modules/register/bindings/register_binding.dart';
 import '../modules/register/views/register_view.dart';
-
-// File: /sppdn/lib/app/routes/app_pages.dart (Versi Akhir yang Benar)
-
-import '../modules/splash/views/splash_view.dart'; // <-- IMPOR SPLASH VIEW
+import '../modules/splash/views/splash_view.dart';
 
 part 'app_routes.dart';
 
 class AppPages {
   AppPages._();
 
-  // 1. GANTI INITIAL ROUTE MENJADI SPLASH
   static const INITIAL = Routes.SPLASH;
 
   static final routes = [
-    // 2. TAMBAHKAN GETPAGE UNTUK SPLASH
     GetPage(
       name: _Paths.SPLASH,
       page: () => const SplashView(),
@@ -46,6 +42,13 @@ class AppPages {
       name: _Paths.PROFILE,
       page: () => const ProfileView(),
       binding: ProfileBinding(),
+    ),
+    // TAMBAHKAN GETPAGE UNTUK ADD_ACTIVITY
+    GetPage(
+      name: _Paths.ADD_ACTIVITY,
+      page: () => const AddActivityView(),
+      binding: AddActivityBinding(),
+      transition: Transition.downToUp, // Transisi yang bagus untuk form
     ),
   ];
 }

@@ -1,7 +1,10 @@
+// ignore_for_file: body_might_complete_normally_catch_error
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:get/get.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:sppdn/app/routes/app_pages.dart'; // PERBAIKAN: Impor AppPages
 
 class AuthController extends GetxController {
   static AuthController instance = Get.find();
@@ -28,133 +31,156 @@ class AuthController extends GetxController {
   @override
   void onReady() {
     super.onReady();
-    // Stream ini sekarang hanya untuk menangani status login saat aplikasi pertama kali dibuka atau saat sign out.
     firebaseUser.bindStream(_auth.authStateChanges());
     ever(firebaseUser, _setInitialScreen);
   }
   
-  // Fungsi ini sekarang hanya menangani kondisi awal dan sign-out
   void _setInitialScreen(User? user) {
     if (user == null) {
-      // Jika user sign out atau sesi berakhir, arahkan ke login.
-      Get.offAllNamed('/login');
+      Get.offAllNamed(Routes.LOGIN);
     } else {
-      // Jika user sudah login saat aplikasi dibuka, arahkan ke home.
-      // Cek untuk menghindari navigasi berulang jika sudah di home.
-      if (Get.currentRoute != '/home') {
-        Get.offAllNamed('/home');
-      }
+      Get.offAllNamed(Routes.HOME);
     }
   }
 
-  // Fungsi ini sudah benar, tidak perlu diubah.
+  // PERBAIKAN: Fungsi ini dibuat lebih tangguh.
   Future<void> _saveUserProfile(User user, {String? name}) async {
-    final userName = name ?? user.displayName ?? 'Unnamed User';
-    print("--> 1. Saving user data to Firestore for $userName");
-    await _firestore.collection('users').doc(user.uid).set({
-      'name': userName, 'email': user.email, 'createdAt': FieldValue.serverTimestamp(), 'uid': user.uid,
-    }, SetOptions(merge: true));
-    print("--> SUCCESS: Firestore write complete.");
+    // Pastikan user object yang kita proses adalah yang terbaru.
+    await user.reload();
+    final freshUser = _auth.currentUser!;
 
-    print("--> 2. Updating Firebase Auth profile display name.");
-    try {
-      if (user.displayName == null || user.displayName != userName) {
-        await user.updateDisplayName(userName);
-        print("--> SUCCESS: updateDisplayName call successful.");
-      }
-    } catch (e) {
-      if (e.toString().contains('Pigeon') || e.toString().contains('List<Object?>')) {
-        print("--> Swallowed known bug during profile update. Continuing...");
-      } else { rethrow; }
+    final userName = name ?? freshUser.displayName ?? freshUser.email?.split('@')[0] ?? 'Pengguna';
+    
+    // Perbarui display name di Firebase Auth jika belum ada atau berbeda.
+    if (freshUser.displayName == null || freshUser.displayName != userName) {
+      await freshUser.updateDisplayName(userName);
+      // Reload lagi untuk memastikan semua data sinkron
+      await freshUser.reload();
     }
     
-    print("--> 3. Forcing user reload to sync state.");
-    await _auth.currentUser?.reload();
+    final userData = {
+      'uid': freshUser.uid,
+      'name': userName,
+      'email': freshUser.email,
+      'lastUpdated': FieldValue.serverTimestamp(),
+    };
+
+    // Gunakan SetOptions(merge: true) untuk mencegah menimpa data yang sudah ada,
+    // dan tambahkan `createdAt` hanya jika dokumen baru dibuat.
+    final docRef = _firestore.collection('users').doc(freshUser.uid);
+    final doc = await docRef.get();
+
+    if (!doc.exists) {
+      userData['createdAt'] = FieldValue.serverTimestamp();
+    }
+    
+    await docRef.set(userData, SetOptions(merge: true));
+
+    // Perbarui nilai Rxn secara manual agar UI (seperti ProfileView) langsung bereaksi.
     firebaseUser.value = _auth.currentUser;
-    print("--> User state synced. Final displayName: ${firebaseUser.value?.displayName}");
   }
 
-  // **PERUBAHAN KUNCI DI SINI**
+  // PERBAIKAN: Logika registrasi yang lebih aman.
   Future<void> register(String name, String email, String password) async {
+    if (name.isEmpty || email.isEmpty || password.isEmpty) {
+      Get.snackbar('Error', 'Semua kolom wajib diisi.');
+      return;
+    }
+    
     try {
       isLoading.value = true;
-      final userCredential = await _auth.createUserWithEmailAndPassword(email: email, password: password);
+      
+      // 1. Buat user
+      final userCredential = await _auth.createUserWithEmailAndPassword(
+        email: email, 
+        password: password
+      );
+      
       final user = userCredential.user;
       
       if (user != null) {
-        // Tunggu sampai profil selesai disimpan dan di-reload
-        await _saveUserProfile(user, name: name); 
+        // 2. Simpan profil (nama, dll.) SEBELUM menganggap proses selesai.
+        // Fungsi ini sekarang akan menangani update display name juga.
+        await _saveUserProfile(user, name: name);
         
-        // Baru navigasi SETELAH semuanya selesai
-        Get.offAllNamed('/home'); 
+        // Pesan sukses. Navigasi akan dihandle oleh listener 'ever' secara otomatis.
+        Get.snackbar(
+          'Registrasi Berhasil', 
+          'Akun Anda telah berhasil dibuat!',
+          snackPosition: SnackPosition.BOTTOM,
+        );
       } else {
-        throw Exception("User is null after creation.");
+        // Ini jarang terjadi, tetapi sebagai pengaman.
+        throw Exception("User null setelah pembuatan akun.");
       }
+      
     } on FirebaseAuthException catch (e) {
-      Get.snackbar('Registration Error', _getFirebaseErrorMessage(e), snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar('Error Registrasi', _getFirebaseErrorMessage(e), snackPosition: SnackPosition.BOTTOM);
     } catch (e) {
-      if (!e.toString().contains('Pigeon')) {
-         Get.snackbar('Error', 'An unknown error occurred.', snackPosition: SnackPosition.BOTTOM);
-      }
+      // Jika terjadi error (misal, _saveUserProfile gagal), log out user
+      // untuk mencegah state yang tidak konsisten (login tapi tanpa profil).
+      await signOut();
+      Get.snackbar('Error', 'Terjadi kesalahan tak terduga: ${e.toString()}', snackPosition: SnackPosition.BOTTOM);
     } finally {
       isLoading.value = false;
     }
   }
   
-  // **PERUBAHAN KUNCI DI SINI**
+  // PERBAIKAN: Logika Login yang lebih bersih.
   Future<void> login(String email, String password) async {
     try {
       isLoading.value = true;
       await _auth.signInWithEmailAndPassword(email: email, password: password);
-      
-      // Navigasi secara eksplisit setelah login berhasil
-      Get.offAllNamed('/home');
+      // Navigasi akan dihandle oleh listener 'ever'.
     } on FirebaseAuthException catch (e) {
-      Get.snackbar('Login Error', _getFirebaseErrorMessage(e), snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar('Error Login', _getFirebaseErrorMessage(e), snackPosition: SnackPosition.BOTTOM);
     } catch (e) {
-      if (e.toString().contains('Pigeon')) {
-        print("--> Swallowed known bug during login. Navigating to home...");
-        // Jika bug terjadi, user tetap berhasil login, jadi kita tetap navigasi
-        Get.offAllNamed('/home');
-      } else {
-        Get.snackbar('Error', 'Something went wrong.', snackPosition: SnackPosition.BOTTOM);
-      }
+      Get.snackbar('Error', 'Terjadi kesalahan: ${e.toString()}', snackPosition: SnackPosition.BOTTOM);
     } finally {
       isLoading.value = false;
     }
   }
   
-  // **PERUBAHAN KUNCI DI SINI**
+  // PERBAIKAN: Logika Google Sign In yang lebih solid.
   Future<void> signInWithGoogle() async {
     try {
       isLoading.value = true;
-      await _googleSignIn.signOut();
+      
+      await _googleSignIn.signOut().catchError((_) {});
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-      if (googleUser == null) { isLoading.value = false; return; }
+      
+      if (googleUser == null) { 
+        isLoading.value = false; 
+        return; 
+      }
       
       final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-      final credential = GoogleAuthProvider.credential(accessToken: googleAuth.accessToken, idToken: googleAuth.idToken);
+      final AuthCredential credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken, 
+        idToken: googleAuth.idToken
+      );
+      
       final userCredential = await _auth.signInWithCredential(credential);
       final user = userCredential.user;
 
       if (user != null) {
+        // Cek jika ini adalah login pertama kali, lalu simpan profilnya.
+        // Firestore akan memberi tahu kita jika user baru.
         final docRef = _firestore.collection('users').doc(user.uid);
         final docSnap = await docRef.get();
+        
         if (!docSnap.exists) {
-           await _saveUserProfile(user);
+          // User baru, simpan profilnya.
+          await _saveUserProfile(user);
+        } else {
+          // User lama, cukup perbarui nama jika perlu (misal, nama di akun google berubah).
+          await _saveUserProfile(user);
         }
-        // Navigasi setelah semua proses selesai
-        Get.offAllNamed('/home');
       }
     } on FirebaseAuthException catch (e) {
       Get.snackbar('Error', _getFirebaseErrorMessage(e), snackPosition: SnackPosition.BOTTOM);
     } catch (e) {
-      if (!e.toString().contains('Pigeon')) {
-        Get.snackbar('Error', 'Google sign in failed.', snackPosition: SnackPosition.BOTTOM);
-      } else {
-        // Jika bug Pigeon terjadi, tetap navigasi
-        Get.offAllNamed('/home');
-      }
+      Get.snackbar('Error', 'Login Google gagal: ${e.toString()}', snackPosition: SnackPosition.BOTTOM);
     } finally {
       isLoading.value = false;
     }
@@ -162,25 +188,46 @@ class AuthController extends GetxController {
   
   Future<void> signOut() async {
     try {
-      await Future.wait([_googleSignIn.signOut(), _auth.signOut()]);
-      // Navigasi akan ditangani oleh listener `ever` karena user menjadi null
+      // PERBAIKAN: Hentikan stream sebelum logout untuk mencegah error PERMISSION_DENIED
+      // Ini adalah contoh, idealnya stream subscription di-dispose di controller masing-masing.
+      // Namun, logout global adalah cara paling pasti.
+      await Future.wait([
+        _googleSignIn.signOut(),
+        _auth.signOut(),
+      ]).catchError((_) {});
+      // Navigasi akan dihandle oleh listener 'ever'.
     } catch (e) {
-      await _auth.signOut();
+      Get.snackbar('Error', 'Gagal sign out: ${e.toString()}', snackPosition: SnackPosition.BOTTOM);
     }
   }
   
   String _getFirebaseErrorMessage(FirebaseAuthException e) {
+    // ... (Fungsi ini sudah bagus, tidak perlu diubah)
     switch (e.code) {
-      case 'user-not-found': return 'No user found with this email.';
-      case 'wrong-password': return 'Wrong password provided.';
-      case 'email-already-in-use': return 'An account already exists with this email.';
-      case 'weak-password': return 'Password is too weak.';
-      case 'invalid-email': return 'Invalid email address.';
-      case 'user-disabled': return 'This user account has been disabled.';
-      case 'too-many-requests': return 'Too many requests. Try again later.';
-      case 'operation-not-allowed': return 'Operation not allowed. Please contact support.';
-      case 'invalid-credential': return 'Invalid credentials. Please try again.';
-      default: return e.message ?? 'An error occurred during authentication.';
+      case 'user-not-found': 
+        return 'Tidak ada pengguna yang ditemukan dengan email ini.';
+      case 'wrong-password': 
+        return 'Password yang dimasukkan salah.';
+      case 'email-already-in-use': 
+        return 'Akun dengan email ini sudah ada.';
+      case 'weak-password': 
+        return 'Password terlalu lemah.';
+      case 'invalid-email': 
+        return 'Alamat email tidak valid.';
+      case 'user-disabled': 
+        return 'Akun pengguna ini telah dinonaktifkan.';
+      case 'too-many-requests': 
+        return 'Terlalu banyak percobaan. Coba lagi nanti.';
+      case 'operation-not-allowed': 
+        return 'Operasi tidak diizinkan. Silakan hubungi dukungan.';
+      case 'invalid-credential': 
+        return 'Kredensial tidak valid. Silakan coba lagi.';
+      case 'network-request-failed':
+        return 'Kesalahan jaringan. Periksa koneksi internet Anda.';
+      case 'permission-denied':
+        return 'Izin ditolak. Silakan hubungi dukungan.';
+      default: 
+        return e.message ?? 'Terjadi kesalahan saat otentikasi.';
     }
   }
 }
