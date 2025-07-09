@@ -191,8 +191,8 @@ class RegisterView extends GetView<RegisterController> {
     ) : ElevatedButton.styleFrom(
       backgroundColor: Colors.blue, foregroundColor: Colors.white,
     )).copyWith(
-      padding: const MaterialStatePropertyAll(EdgeInsets.symmetric(vertical: 16)),
-      shape: MaterialStatePropertyAll(
+      padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 16)),
+      shape: WidgetStatePropertyAll(
         RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
       ),
     );

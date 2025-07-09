@@ -39,6 +39,7 @@ dependencies:
   firebase_auth: ^4.15.3
   google_sign_in: ^6.1.6
   cloud_firestore: ^4.17.3
+  flutter_native_splash: ^2.4.6
 
 dev_dependencies:
   flutter_test:
@@ -54,6 +55,25 @@ dev_dependencies:
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 
+flutter_native_splash:
+  # Warna background splash screen. Buatlah sama dengan background logo Anda
+  # agar terlihat menyatu. Gunakan kode hex.
+  color: "#FFFFFF" # <-- Ganti ke #FFFFFF untuk putih
+
+  # Path ke file logo Anda.
+  image: assets/logo.png
+
+  # (Opsional) Untuk Android 12+, splash screen memiliki gaya yang berbeda.
+  # Package ini akan secara otomatis membuat versi yang kompatibel.
+  android_12:
+    image: assets/logo.png
+    color: "#FFFFFF" # <-- Background untuk Android 12+
+
+  # Aktifkan untuk platform yang Anda targetkan
+  android: true
+  ios: true
+  web: false
+
 # The following section is specific to Flutter packages.
 flutter:
 
@@ -65,6 +85,7 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
     - assets/google_logo.png
+    - assets/logo.png
 
 
   # An image asset can refer to one or more resolution-specific "variants", see
