@@ -95,14 +95,6 @@ class ProfileView extends GetView<ProfileController> {
           ),
           const Divider(height: 1, indent: 16, endIndent: 16),
           _buildProfileMenuItem(
-            icon: Icons.settings_outlined,
-            text: 'Pengaturan',
-            onTap: () {
-              Get.snackbar('Fitur Mendatang', 'Halaman pengaturan akan segera hadir!');
-            },
-          ),
-          const Divider(height: 1, indent: 16, endIndent: 16),
-          _buildProfileMenuItem(
             icon: Icons.logout,
             text: 'Sign Out',
             textColor: Colors.red, // Warna khusus untuk aksi destruktif
