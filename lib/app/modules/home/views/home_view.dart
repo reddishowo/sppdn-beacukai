@@ -14,36 +14,53 @@ class HomeView extends GetView<HomeController> {
             children: controller.pages,
           )),
       
-      // 1. Kembalikan FAB ke tengah
-      floatingActionButton: FloatingActionButton(
-        onPressed: controller.onAddButtonPressed,
-        backgroundColor: Colors.blue,
-        shape: const CircleBorder(),
-        child: const Icon(Icons.add, color: Colors.white),
-        elevation: 2.0, // Sedikit bayangan untuk FAB
+      // PERUBAHAN: FAB dengan Gradient
+      floatingActionButton: Container(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: LinearGradient(
+            colors: [Colors.blue.shade600, Colors.blue.shade400],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.blue.withOpacity(0.3),
+              spreadRadius: 2,
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: FloatingActionButton(
+          onPressed: controller.onAddButtonPressed,
+          backgroundColor: Colors.transparent, // Warna dibuat transparan karena sudah di-handle oleh Container
+          elevation: 0,
+          shape: const CircleBorder(),
+          child: const Icon(Icons.add, color: Colors.white, size: 30),
+        ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
 
-      // 2. Gunakan BottomAppBar lagi untuk membuat 'notch' (lekukan)
       bottomNavigationBar: BottomAppBar(
         shape: const CircularNotchedRectangle(),
-        notchMargin: 8.0, // Jarak antara FAB dan BottomAppBar
+        notchMargin: 10.0, // Jarak lebih besar agar lebih estetik
         color: Theme.of(context).scaffoldBackgroundColor,
-        elevation: 10.0, // Beri bayangan agar terpisah dari konten
+        elevation: 20.0, // Bayangan lebih dramatis
+        shadowColor: Colors.black.withOpacity(0.1),
+        height: 75,
         child: Obx(
           () => Row(
-            // 3. Susun item navigasi secara manual menggunakan Row
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: <Widget>[
               _buildNavItem(
-                icon: Icons.home_filled,
+                icon: Icons.dashboard_rounded, // Ganti ikon agar lebih modern
                 label: 'Beranda',
                 index: 0,
               ),
-              // Tambahkan Spacer untuk memberikan ruang bagi FAB di tengah
-              const Spacer(),
+              const Spacer(flex: 2), // Beri ruang lebih besar untuk FAB
               _buildNavItem(
-                icon: Icons.person,
+                icon: Icons.person_outline_rounded,
                 label: 'Profil',
                 index: 1,
               ),
@@ -54,7 +71,7 @@ class HomeView extends GetView<HomeController> {
     );
   }
 
-  // 4. Buat helper widget untuk item navigasi agar kode lebih bersih
+  // PERUBAHAN: Widget item navigasi yang lebih cantik
    Widget _buildNavItem({
     required IconData icon,
     required String label,
@@ -63,32 +80,29 @@ class HomeView extends GetView<HomeController> {
     final bool isSelected = controller.tabIndex.value == index;
     
     return Expanded(
+      flex: 3, // Beri bobot agar tombol lebih lebar
       child: InkWell(
         onTap: () => controller.changeTabIndex(index),
-        splashColor: Colors.transparent,
+        splashColor: Colors.blue.withOpacity(0.1),
         highlightColor: Colors.transparent,
-        // ** PERBAIKAN KUNCI DI SINI **
-        // Kita HAPUS widget Padding dan membiarkan Column menangani layout.
+        borderRadius: BorderRadius.circular(24),
         child: Column(
-          // 1. Ganti `mainAxisSize` menjadi `mainAxisAlignment`.
-          //    `MainAxisAlignment.center` akan membuat Column mengisi
-          //    seluruh tinggi yang tersedia dan menempatkan isinya di tengah.
           mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min, // Beritahu Column agar tidak "rakus" ruang
           children: <Widget>[
             Icon(
               icon,
-              color: isSelected ? Colors.blue : Colors.grey,
+              color: isSelected ? Colors.blue.shade600 : Colors.grey.shade500,
+              size: 26, // Ikon sedikit lebih besar
             ),
-            // 2. Kurangi sedikit jarak vertikal agar lebih pas.
-            const SizedBox(height: 2),
+            const SizedBox(height: 4),
             Text(
               label,
               style: TextStyle(
-                color: isSelected ? Colors.blue : Colors.grey,
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                color: isSelected ? Colors.blue.shade700 : Colors.grey.shade600,
+                fontSize: 11, // Ukuran font sedikit lebih kecil agar rapi
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
               ),
-              // Mencegah teks turun ke baris baru jika terlalu panjang
               overflow: TextOverflow.ellipsis,
             ),
           ],
