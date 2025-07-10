@@ -1,31 +1,25 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:intl/date_symbol_data_local.dart'; // <-- 1. TAMBAHKAN IMPORT INI
-import 'firebase_options.dart'; 
+import 'package:intl/date_symbol_data_local.dart';
+import 'firebase_options.dart';
 import 'app/modules/auth/controllers/auth_controller.dart';
 import 'app/routes/app_pages.dart';
 
 void main() async {
   // Pastikan binding sudah siap sebelum operasi async
-  WidgetsFlutterBinding.ensureInitialized();
-  
+  WidgetsFlutterBinding.ensureInitialized();  
   // Inisialisasi Firebase
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  
-  // <-- 2. TAMBAHKAN BARIS INISIALISASI DI SINI
-  // Memuat data lokalisasi untuk Bahasa Indonesia ('id_ID')
   await initializeDateFormatting('id_ID', null);
-  
   // Jalankan aplikasi
   runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
-
   @override
   Widget build(BuildContext context) {
     return GetMaterialApp(
