@@ -37,11 +37,18 @@ class AddActivityView extends GetView<AddActivityController> {
               _buildPhotoPicker(),
               const SizedBox(height: 16),
 
-              // Info Tanggal/Jam
-              _buildInfoField(
-                label: 'Tanggal / Jam',
+              // **PERUBAHAN: TAMPILKAN TANGGAL DAN JAM OTOMATIS**
+              _buildReadOnlyTextField(
+                label: 'Tanggal Kegiatan',
                 icon: Icons.calendar_today,
-                value: 'Akan dicatat otomatis saat disimpan',
+                value: controller.formattedDate, // Ambil dari controller
+              ),
+              const SizedBox(height: 16),
+              
+              _buildReadOnlyTextField(
+                label: 'Jam Kegiatan',
+                icon: Icons.access_time_filled,
+                value: controller.formattedTime, // Ambil dari controller
               ),
               const SizedBox(height: 32),
             ],
@@ -92,25 +99,6 @@ class AddActivityView extends GetView<AddActivityController> {
     ));
   }
   
-  // Widget untuk info field
-  Widget _buildInfoField({required String label, required IconData icon, required String value}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-      decoration: BoxDecoration(
-        color: Colors.blue.shade50,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.blue.shade100)
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: Colors.blue.shade700),
-          const SizedBox(width: 12),
-          Expanded(child: Text(value, style: TextStyle(color: Colors.blue.shade800)))
-        ],
-      ),
-    );
-  }
-
   // Widget untuk pemilih foto
   Widget _buildPhotoPicker() {
     return Column(

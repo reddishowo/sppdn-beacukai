@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../auth/controllers/auth_controller.dart'; // Import AuthController untuk isLoading
 import '../controllers/profile_controller.dart';
 
 class ProfileView extends GetView<ProfileController> {
@@ -8,31 +9,25 @@ class ProfileView extends GetView<ProfileController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Latar belakang yang konsisten dengan halaman lain
       backgroundColor: Colors.grey.shade100,
       appBar: AppBar(
         title: const Text('Profil Saya'),
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
-        foregroundColor: Colors.black87, // Agar judul terlihat di background terang
+        foregroundColor: Colors.black87,
       ),
-      // Gunakan ListView agar bisa di-scroll di layar kecil
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
         children: [
-          // Kartu Informasi Pengguna
           _buildUserInfoCard(),
           const SizedBox(height: 24),
-
-          // Kartu Menu Aksi
           _buildActionsMenu(context),
         ],
       ),
     );
   }
 
-  // Widget untuk kartu informasi pengguna
   Widget _buildUserInfoCard() {
     return Card(
       elevation: 4,
@@ -40,7 +35,6 @@ class ProfileView extends GetView<ProfileController> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 24.0),
-        // Gunakan Obx agar nama dan email selalu update
         child: Obx(
           () => Column(
             children: [
@@ -78,7 +72,6 @@ class ProfileView extends GetView<ProfileController> {
     );
   }
 
-  // Widget untuk menu aksi
   Widget _buildActionsMenu(BuildContext context) {
     return Card(
       elevation: 2,
@@ -89,15 +82,14 @@ class ProfileView extends GetView<ProfileController> {
           _buildProfileMenuItem(
             icon: Icons.edit_outlined,
             text: 'Edit Profil',
-            onTap: () {
-              Get.snackbar('Fitur Mendatang', 'Fitur edit profil akan segera hadir!');
-            },
+            // **PERUBAHAN: GANTI onTap UNTUK MEMANGGIL DIALOG**
+            onTap: () => _showEditProfileDialog(context),
           ),
           const Divider(height: 1, indent: 16, endIndent: 16),
           _buildProfileMenuItem(
             icon: Icons.logout,
             text: 'Sign Out',
-            textColor: Colors.red, // Warna khusus untuk aksi destruktif
+            textColor: Colors.red,
             onTap: () => _showLogoutDialog(context),
           ),
         ],
@@ -105,7 +97,6 @@ class ProfileView extends GetView<ProfileController> {
     );
   }
 
-  // Helper widget untuk membuat satu item menu
   Widget _buildProfileMenuItem({
     required IconData icon,
     required String text,
@@ -120,7 +111,6 @@ class ProfileView extends GetView<ProfileController> {
     );
   }
 
-  // Dialog konfirmasi logout (tetap sama)
   void _showLogoutDialog(BuildContext context) {
     Get.dialog(
       AlertDialog(
@@ -134,13 +124,101 @@ class ProfileView extends GetView<ProfileController> {
           ),
           TextButton(
             onPressed: () {
-              Get.back(); // Tutup dialog
+              Get.back();
               controller.signOut();
             },
             child: const Text('Sign Out', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
+    );
+  }
+
+  // **WIDGET BARU: DIALOG UNTUK EDIT PROFIL**
+  void _showEditProfileDialog(BuildContext context) {
+    // Set ulang text controller ke nama saat ini setiap kali dialog dibuka
+    controller.nameController.text = controller.displayName;
+
+    Get.dialog(
+      AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Edit Profil', textAlign: TextAlign.center),
+        content: Form(
+          key: controller.formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: controller.nameController,
+                textCapitalization: TextCapitalization.words,
+                decoration: InputDecoration(
+                  labelText: 'Nama Lengkap',
+                  prefixIcon: const Icon(Icons.person_outline),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Nama tidak boleh kosong';
+                  }
+                  return null;
+                },
+              ),
+            ],
+          ),
+        ),
+        actionsAlignment: MainAxisAlignment.center,
+        actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+        actions: [
+          // Gunakan Obx untuk menonaktifkan tombol saat loading
+          Obx(() => Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: AuthController.instance.isLoading.value
+                          ? null
+                          : () => Get.back(),
+                      child: const Text('Batal'),
+                      style: OutlinedButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: AuthController.instance.isLoading.value
+                          ? null
+                          : controller.saveProfileChanges,
+                      child: AuthController.instance.isLoading.value
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Text('Simpan'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                ],
+              )),
+        ],
+      ),
+      barrierDismissible: false, // Mencegah dialog tertutup saat area luar disentuh
     );
   }
 }

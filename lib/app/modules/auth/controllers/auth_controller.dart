@@ -2,9 +2,10 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart'; // <-- Tambahkan import ini
 import 'package:get/get.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:sppdn/app/routes/app_pages.dart'; // PERBAIKAN: Impor AppPages
+import 'package:sppdn/app/routes/app_pages.dart'; 
 
 class AuthController extends GetxController {
   static AuthController instance = Get.find();
@@ -43,18 +44,13 @@ class AuthController extends GetxController {
     }
   }
 
-  // PERBAIKAN: Fungsi ini dibuat lebih tangguh.
   Future<void> _saveUserProfile(User user, {String? name}) async {
-    // Pastikan user object yang kita proses adalah yang terbaru.
     await user.reload();
     final freshUser = _auth.currentUser!;
-
     final userName = name ?? freshUser.displayName ?? freshUser.email?.split('@')[0] ?? 'Pengguna';
     
-    // Perbarui display name di Firebase Auth jika belum ada atau berbeda.
     if (freshUser.displayName == null || freshUser.displayName != userName) {
       await freshUser.updateDisplayName(userName);
-      // Reload lagi untuk memastikan semua data sinkron
       await freshUser.reload();
     }
     
@@ -65,8 +61,6 @@ class AuthController extends GetxController {
       'lastUpdated': FieldValue.serverTimestamp(),
     };
 
-    // Gunakan SetOptions(merge: true) untuk mencegah menimpa data yang sudah ada,
-    // dan tambahkan `createdAt` hanya jika dokumen baru dibuat.
     final docRef = _firestore.collection('users').doc(freshUser.uid);
     final doc = await docRef.get();
 
@@ -75,11 +69,53 @@ class AuthController extends GetxController {
     }
     
     await docRef.set(userData, SetOptions(merge: true));
-
-    // Perbarui nilai Rxn secara manual agar UI (seperti ProfileView) langsung bereaksi.
     firebaseUser.value = _auth.currentUser;
   }
 
+  // **FUNGSI BARU UNTUK UPDATE NAMA**
+  Future<void> updateUserName(String newName) async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      Get.snackbar('Error', 'Tidak ada pengguna yang login.', snackPosition: SnackPosition.BOTTOM);
+      return;
+    }
+    if (newName.trim().isEmpty) {
+      Get.snackbar('Error', 'Nama tidak boleh kosong.', snackPosition: SnackPosition.BOTTOM);
+      return;
+    }
+
+    isLoading.value = true;
+    try {
+      // 1. Update Display Name di Firebase Auth
+      await user.updateDisplayName(newName.trim());
+
+      // 2. Update Nama di Firestore
+      await _firestore.collection('users').doc(user.uid).update({
+        'name': newName.trim(),
+        'lastUpdated': FieldValue.serverTimestamp(),
+      });
+      
+      // 3. Reload user data untuk memastikan semua sinkron
+      await user.reload();
+      firebaseUser.value = _auth.currentUser; // Update state reaktif
+
+      Get.back(); // Tutup dialog edit profil
+      Get.snackbar(
+        'Sukses', 
+        'Nama profil berhasil diperbarui.', 
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+      );
+
+    } catch (e) {
+      Get.snackbar('Error', 'Gagal memperbarui nama: ${e.toString()}', snackPosition: SnackPosition.BOTTOM);
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  // ... (sisa kode register, login, dll. tetap sama) ...
   // PERBAIKAN: Logika registrasi yang lebih aman.
   Future<void> register(String name, String email, String password) async {
     if (name.isEmpty || email.isEmpty || password.isEmpty) {

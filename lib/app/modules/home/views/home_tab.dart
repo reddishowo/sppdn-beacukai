@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:photo_view/photo_view.dart'; // <-- TAMBAHKAN IMPORT INI
 import '../controllers/home_controller.dart';
 
 class HomeTab extends GetView<HomeController> {
@@ -10,30 +11,24 @@ class HomeTab extends GetView<HomeController> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold( // Bungkus dengan Scaffold agar bisa pakai RefreshIndicator
+    return Scaffold(
       backgroundColor: Colors.grey.shade100,
       body: SafeArea(
         child: RefreshIndicator(
-          onRefresh: () async {
-            // Logika refresh, bisa dibiarkan kosong untuk sekedar memicu re-fetch dari StreamBuilder
-            // atau panggil fungsi di controller jika ada.
-          },
+          onRefresh: () async {},
           color: Colors.blue.shade600,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                 child: _buildHeader(),
               ),
-              // Judul List
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 20.0),
                 child: Text('Riwayat Kegiatan', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Color(0xFF333333))),
               ),
               const SizedBox(height: 12),
-              // Daftar Kegiatan dari Firestore
               Expanded(
                 child: StreamBuilder<QuerySnapshot>(
                   stream: controller.activityStream,
@@ -60,10 +55,8 @@ class HomeTab extends GetView<HomeController> {
     );
   }
 
-  // PERUBAHAN: Header menjadi kartu selamat datang yang lebih personal
   Widget _buildHeader() {
     return Obx(() {
-      // Ambil inisial dari nama
       final String displayName = controller.displayName;
       final String initials = displayName.isNotEmpty
           ? displayName.trim().split(' ').map((l) => l[0]).take(2).join().toUpperCase()
@@ -97,7 +90,6 @@ class HomeTab extends GetView<HomeController> {
     });
   }
   
-  // PERUBAHAN: Helper baru untuk tanggal relatif (Hari Ini, Kemarin)
   String _getFormattedDateHeader(Timestamp timestamp) {
     final DateTime date = timestamp.toDate();
     final DateTime now = DateTime.now();
@@ -128,9 +120,8 @@ class HomeTab extends GetView<HomeController> {
         final doc = docs[index];
         final data = doc.data() as Map<String, dynamic>;
         
-        // Handle jika createdAt null (meskipun jarang)
-        if (data['createdAt'] == null) return const SizedBox.shrink();
-        final currentTimestamp = data['createdAt'] as Timestamp;
+        final currentTimestamp = data['createdAt'] as Timestamp?;
+        if (currentTimestamp == null) return const SizedBox.shrink();
         
         final bool showDateHeader;
         if (index == 0) {
@@ -159,8 +150,12 @@ class HomeTab extends GetView<HomeController> {
     );
   }
 
-  // PERUBAHAN: Kartu aktivitas yang didesain ulang total
   Widget _buildActivityCard(Map<String, dynamic> data) {
+    final timestamp = data['activityTimestamp'] as Timestamp? ?? data['createdAt'] as Timestamp?;
+    final String timeString = timestamp != null
+        ? DateFormat('HH:mm', 'id_ID').format(timestamp.toDate())
+        : '--:--';
+
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       elevation: 4,
@@ -168,38 +163,31 @@ class HomeTab extends GetView<HomeController> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: InkWell(
         onTap: () {
-          // Aksi saat kartu ditekan, misalnya ke halaman detail
-          Get.snackbar('Info', 'Detail untuk ruangan ${data['room'] ?? ''}');
+          Get.dialog(_ActivityDetailDialog(data: data));
         },
         borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.all(12.0),
           child: Row(
             children: [
-              // Gambar Thumbnail dengan border
               ClipRRect(
                 borderRadius: BorderRadius.circular(12.0),
                 child: CachedNetworkImage(
                   imageUrl: data['imageUrl'] ?? '',
-                  height: 70,
-                  width: 70,
+                  height: 80,
+                  width: 80,
                   fit: BoxFit.cover,
                   placeholder: (context, url) => Container(
-                    height: 70,
-                    width: 70,
-                    decoration: BoxDecoration(color: Colors.grey.shade200),
+                    height: 80, width: 80, color: Colors.grey.shade200,
                     child: const Icon(Icons.image, color: Colors.grey),
                   ),
                   errorWidget: (context, url, error) => Container(
-                    height: 70,
-                    width: 70,
-                    decoration: BoxDecoration(color: Colors.red.shade50),
+                    height: 80, width: 80, color: Colors.red.shade50,
                     child: const Icon(Icons.broken_image, color: Colors.red),
                   ),
                 ),
               ),
               const SizedBox(width: 16),
-              // Detail Teks
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -226,10 +214,20 @@ class HomeTab extends GetView<HomeController> {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Icon(Icons.access_time_filled, size: 14, color: Colors.grey.shade600),
+                        const SizedBox(width: 6),
+                        Text(
+                          timeString,
+                          style: TextStyle(color: Colors.grey.shade700, fontSize: 13, fontWeight: FontWeight.w500),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
-              // Indikator panah
               Icon(Icons.chevron_right, color: Colors.grey.shade400, size: 28),
             ],
           ),
@@ -238,7 +236,6 @@ class HomeTab extends GetView<HomeController> {
     );
   }
 
-  // Helper untuk state kosong
   Widget _buildEmptyState() {
     return Center(
       child: Column(
@@ -254,7 +251,6 @@ class HomeTab extends GetView<HomeController> {
     );
   }
   
-  // Helper untuk state error
   Widget _buildErrorState(String message) {
      return Center(
       child: Column(
@@ -269,6 +265,157 @@ class HomeTab extends GetView<HomeController> {
             child: Text(message, style: TextStyle(fontSize: 14, color: Colors.grey.shade600), textAlign: TextAlign.center),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ActivityDetailDialog extends StatelessWidget {
+  final Map<String, dynamic> data;
+  const _ActivityDetailDialog({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    final timestamp = data['activityTimestamp'] as Timestamp? ?? data['createdAt'] as Timestamp?;
+    final String dateTimeString = timestamp != null
+        ? DateFormat('EEEE, dd MMMM yyyy - HH:mm', 'id_ID').format(timestamp.toDate())
+        : 'Waktu tidak tersedia';
+    final imageUrl = data['imageUrl'] ?? '';
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // **PERUBAHAN: GAMBAR DIBUNGKUS DENGAN GestureDetector**
+              GestureDetector(
+                onTap: () {
+                  // Navigasi ke halaman fullscreen saat gambar diketuk
+                  if (imageUrl.isNotEmpty) {
+                    Get.to(() => _FullScreenImageView(imageUrl: imageUrl), transition: Transition.fadeIn);
+                  }
+                },
+                child: Hero( // Tambahkan Hero untuk animasi transisi yang mulus
+                  tag: imageUrl,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: CachedNetworkImage(
+                      imageUrl: imageUrl,
+                      fit: BoxFit.cover,
+                      height: 250,
+                      placeholder: (context, url) => Container(
+                        height: 250,
+                        color: Colors.grey.shade200,
+                        child: const Center(child: CircularProgressIndicator()),
+                      ),
+                      errorWidget: (context, url, error) => Container(
+                        height: 250,
+                        color: Colors.red.shade50,
+                        child: const Icon(Icons.broken_image, size: 50, color: Colors.red),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              Text(
+                data['room'] ?? 'Ruangan Tidak Ditemukan',
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 24),
+
+              _buildDetailRow(
+                icon: Icons.person_pin_rounded,
+                label: 'Petugas',
+                value: data['officerName'] ?? 'Tidak diketahui',
+              ),
+              const Divider(height: 20),
+              _buildDetailRow(
+                icon: Icons.business_rounded,
+                label: 'Lantai',
+                value: 'Lantai ${data['floor'] ?? '-'}',
+              ),
+              const Divider(height: 20),
+              _buildDetailRow(
+                icon: Icons.calendar_month_rounded,
+                label: 'Waktu',
+                value: dateTimeString,
+              ),
+              const SizedBox(height: 30),
+
+              ElevatedButton(
+                onPressed: () => Get.back(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: const Text('Tutup', style: TextStyle(fontSize: 16)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailRow({required IconData icon, required String label, required String value}) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: Colors.blue.shade700, size: 22),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
+              const SizedBox(height: 4),
+              Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+
+// **WIDGET BARU: HALAMAN UNTUK TAMPILAN GAMBAR FULLSCREEN**
+class _FullScreenImageView extends StatelessWidget {
+  final String imageUrl;
+
+  const _FullScreenImageView({required this.imageUrl});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        // Tombol back akan otomatis ditambahkan oleh GetX / Navigator
+      ),
+      body: Hero( // Gunakan Hero dengan tag yang sama untuk animasi
+        tag: imageUrl,
+        child: PhotoView(
+          imageProvider: CachedNetworkImageProvider(imageUrl),
+          loadingBuilder: (context, event) => const Center(
+            child: CircularProgressIndicator(),
+          ),
+          errorBuilder: (context, error, stackTrace) => const Center(
+            child: Icon(Icons.error_outline, color: Colors.white, size: 50),
+          ),
+          minScale: PhotoViewComputedScale.contained * 0.8,
+          maxScale: PhotoViewComputedScale.covered * 2.0,
+        ),
       ),
     );
   }

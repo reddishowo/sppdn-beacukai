@@ -9,6 +9,7 @@ import 'package:sppdn/app/modules/auth/controllers/auth_controller.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart'; // <-- TAMBAHKAN IMPORT INI
 
 class AddActivityController extends GetxController {
   // State
@@ -25,7 +26,14 @@ class AddActivityController extends GetxController {
   // Data
   late int floor;
   late List<String> roomList;
+  late DateTime activityTimestamp; // <-- TAMBAHKAN STATE UNTUK WAKTU
   String get officerName => _authController.firebaseUser.value?.displayName ?? 'Nama Tidak Ditemukan';
+
+  // Formatters
+  // <-- TAMBAHKAN FORMATTER
+  String get formattedDate => DateFormat('EEEE, dd MMMM yyyy', 'id_ID').format(activityTimestamp);
+  String get formattedTime => DateFormat('HH:mm', 'id_ID').format(activityTimestamp);
+
 
   // Daftar ruangan (tetap sama)
   final Map<int, List<String>> _allRooms = {
@@ -38,6 +46,7 @@ class AddActivityController extends GetxController {
     super.onInit();
     floor = Get.arguments as int;
     roomList = _allRooms[floor] ?? [];
+    activityTimestamp = DateTime.now(); // <-- INISIALISASI WAKTU SAAT INI
   }
 
   Future<void> pickImage() async {
@@ -60,14 +69,8 @@ class AddActivityController extends GetxController {
     return File(result!.path);
   }
 
-  // **FUNGSI UPLOAD KE IMGBB**
   Future<String?> _uploadToImgBB(File image) async {
-    // API Key Anda sudah dimasukkan di sini.
     const String apiKey = '505a48d52595aab0278a36921434b2dc';
-
-    //
-    // !!! BLOK IF YANG BERMASALAH SUDAH DIHAPUS !!!
-    //
 
     final uri = Uri.parse('https://api.imgbb.com/1/upload?key=$apiKey');
     final request = http.MultipartRequest('POST', uri);
@@ -81,26 +84,21 @@ class AddActivityController extends GetxController {
         if (decodedBody['success'] == true) {
           return decodedBody['data']['url'];
         } else {
-          // Memberikan pesan error yang lebih jelas dari API
           final errorMessage = decodedBody['error']['message'];
           Get.snackbar('Error API ImgBB', errorMessage, snackPosition: SnackPosition.BOTTOM);
-          print("ImgBB API Error: $errorMessage");
           return null;
         }
       } else {
-        // Memberikan pesan error yang lebih jelas untuk status code HTTP
         Get.snackbar('Error Upload', 'Gagal terhubung ke server. Status: ${response.statusCode}', snackPosition: SnackPosition.BOTTOM);
-        print("HTTP Error: ${response.statusCode}");
         return null;
       }
     } catch (e) {
       Get.snackbar('Error Jaringan', 'Terjadi kesalahan: ${e.toString()}', snackPosition: SnackPosition.BOTTOM);
-      print("Error saat mengupload ke ImgBB: $e");
       return null;
     }
   }
 
-  // Logika penyimpanan aktivitas (TETAP SAMA, TIDAK PERLU DIUBAH)
+  // **PERUBAHAN PADA LOGIKA PENYIMPANAN**
   Future<void> saveActivity() async {
     if (!(formKey.currentState?.validate() ?? false)) {
       Get.snackbar('Error', 'Harap lengkapi semua data yang diperlukan.', snackPosition: SnackPosition.BOTTOM);
@@ -117,8 +115,6 @@ class AddActivityController extends GetxController {
       final String? imageUrl = await _uploadToImgBB(compressedImage);
 
       if (imageUrl == null) {
-        // Pesan error sudah ditampilkan dari dalam _uploadToImgBB
-        // Cukup hentikan prosesnya di sini.
         isLoading.value = false;
         return;
       }
@@ -129,7 +125,8 @@ class AddActivityController extends GetxController {
         'room': selectedRoom.value,
         'floor': floor,
         'imageUrl': imageUrl,
-        'createdAt': FieldValue.serverTimestamp(),
+        'activityTimestamp': Timestamp.fromDate(activityTimestamp), // <-- SIMPAN TIMESTAMP YANG DITAMPILKAN KE USER
+        'createdAt': FieldValue.serverTimestamp(), // Tetap simpan server timestamp untuk sorting
       });
 
       Get.back();
