@@ -21,6 +21,7 @@ dependencies:
   cloud_firestore: ^4.15.9
   # firebase_storage: ^11.6.10
   google_sign_in: ^6.2.1 # REKOMENDASI: Versi stabil terbaru
+  flutter_launcher_icons: ^0.13.1 
 
   http: ^1.2.1
 
@@ -54,3 +55,9 @@ flutter:
   assets:
     - assets/google_logo.png
     - assets/logo.png
+
+flutter_launcher_icons:
+  android: true # Kita ingin membuat ikon untuk Android
+  ios: true # Anda juga bisa sekalian membuatnya untuk iOS
+  image_path: "assets/logo.png" # Path ke file logo Anda
+  min_sdk_android: 21 # Sesuaikan dengan minSdk di build.gradle Anda jika perlu

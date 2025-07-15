@@ -1,10 +1,13 @@
 import 'package:get/get.dart';
-import 'package:sppdn/app/modules/add_activity/bindings/add_activity_binding.dart';
-import 'package:sppdn/app/modules/add_activity/views/add_activity_view.dart';
+
+import '../modules/add_activity/bindings/add_activity_binding.dart';
+import '../modules/add_activity/views/add_activity_view.dart';
 import '../modules/home/bindings/home_binding.dart';
 import '../modules/home/views/home_view.dart';
 import '../modules/login/bindings/login_binding.dart';
 import '../modules/login/views/login_view.dart';
+import '../modules/manage_rooms/bindings/manage_rooms_binding.dart';
+import '../modules/manage_rooms/views/manage_rooms_view.dart';
 import '../modules/profile/bindings/profile_binding.dart';
 import '../modules/profile/views/profile_view.dart';
 import '../modules/register/bindings/register_binding.dart';
@@ -49,6 +52,11 @@ class AppPages {
       page: () => const AddActivityView(),
       binding: AddActivityBinding(),
       transition: Transition.downToUp, // Transisi yang bagus untuk form
+    ),
+    GetPage(
+      name: _Paths.MANAGE_ROOMS,
+      page: () => const ManageRoomsView(),
+      binding: ManageRoomsBinding(),
     ),
   ];
 }

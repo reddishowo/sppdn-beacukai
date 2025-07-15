@@ -1,8 +1,8 @@
-// ignore_for_file: body_might_complete_normally_catch_error
+// lib/app/modules/auth/controllers/auth_controller.dart
 
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/material.dart'; // <-- Tambahkan import ini
 import 'package:get/get.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sppdn/app/routes/app_pages.dart'; 
@@ -17,6 +17,17 @@ class AuthController extends GetxController {
   Rxn<User> firebaseUser = Rxn<User>();
   RxBool isLoading = false.obs;
   
+  final Rxn<DocumentSnapshot> _firestoreUser = Rxn<DocumentSnapshot>();
+  StreamSubscription? _firestoreUserStream;
+
+  bool get isAdmin {
+    if (_firestoreUser.value != null && _firestoreUser.value!.exists) {
+      final data = _firestoreUser.value!.data() as Map<String, dynamic>;
+      return data.containsKey('role') && data['role'] == 'admin';
+    }
+    return false;
+  }
+
   @override
   void onInit() {
     super.onInit();
@@ -38,8 +49,14 @@ class AuthController extends GetxController {
   
   void _setInitialScreen(User? user) {
     if (user == null) {
+      _firestoreUserStream?.cancel();
+      _firestoreUser.value = null;
       Get.offAllNamed(Routes.LOGIN);
     } else {
+      _firestoreUserStream = _firestore.collection('users').doc(user.uid).snapshots().listen((doc) {
+        _firestoreUser.value = doc;
+        update();
+      });
       Get.offAllNamed(Routes.HOME);
     }
   }
@@ -66,57 +83,26 @@ class AuthController extends GetxController {
 
     if (!doc.exists) {
       userData['createdAt'] = FieldValue.serverTimestamp();
+      
+      final List<String> adminEmails = [
+        'admin@sppdn.com',
+        'sbuki.blbc@gmail.com',
+      ];
+
+      if (adminEmails.contains(freshUser.email)) {
+        userData['role'] = 'admin';
+      } else {
+        userData['role'] = 'user';
+      }
     }
     
     await docRef.set(userData, SetOptions(merge: true));
     firebaseUser.value = _auth.currentUser;
   }
 
-  // **FUNGSI BARU UNTUK UPDATE NAMA**
-  Future<void> updateUserName(String newName) async {
-    final user = _auth.currentUser;
-    if (user == null) {
-      Get.snackbar('Error', 'Tidak ada pengguna yang login.', snackPosition: SnackPosition.BOTTOM);
-      return;
-    }
-    if (newName.trim().isEmpty) {
-      Get.snackbar('Error', 'Nama tidak boleh kosong.', snackPosition: SnackPosition.BOTTOM);
-      return;
-    }
-
-    isLoading.value = true;
-    try {
-      // 1. Update Display Name di Firebase Auth
-      await user.updateDisplayName(newName.trim());
-
-      // 2. Update Nama di Firestore
-      await _firestore.collection('users').doc(user.uid).update({
-        'name': newName.trim(),
-        'lastUpdated': FieldValue.serverTimestamp(),
-      });
-      
-      // 3. Reload user data untuk memastikan semua sinkron
-      await user.reload();
-      firebaseUser.value = _auth.currentUser; // Update state reaktif
-
-      Get.back(); // Tutup dialog edit profil
-      Get.snackbar(
-        'Sukses', 
-        'Nama profil berhasil diperbarui.', 
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.green,
-        colorText: Colors.white,
-      );
-
-    } catch (e) {
-      Get.snackbar('Error', 'Gagal memperbarui nama: ${e.toString()}', snackPosition: SnackPosition.BOTTOM);
-    } finally {
-      isLoading.value = false;
-    }
-  }
+  // **PERUBAHAN: Fungsi `updateUserName` telah dihapus sepenuhnya.**
 
   // ... (sisa kode register, login, dll. tetap sama) ...
-  // PERBAIKAN: Logika registrasi yang lebih aman.
   Future<void> register(String name, String email, String password) async {
     if (name.isEmpty || email.isEmpty || password.isEmpty) {
       Get.snackbar('Error', 'Semua kolom wajib diisi.');
@@ -125,36 +111,24 @@ class AuthController extends GetxController {
     
     try {
       isLoading.value = true;
-      
-      // 1. Buat user
       final userCredential = await _auth.createUserWithEmailAndPassword(
         email: email, 
         password: password
       );
-      
       final user = userCredential.user;
-      
       if (user != null) {
-        // 2. Simpan profil (nama, dll.) SEBELUM menganggap proses selesai.
-        // Fungsi ini sekarang akan menangani update display name juga.
         await _saveUserProfile(user, name: name);
-        
-        // Pesan sukses. Navigasi akan dihandle oleh listener 'ever' secara otomatis.
         Get.snackbar(
           'Registrasi Berhasil', 
           'Akun Anda telah berhasil dibuat!',
           snackPosition: SnackPosition.BOTTOM,
         );
       } else {
-        // Ini jarang terjadi, tetapi sebagai pengaman.
         throw Exception("User null setelah pembuatan akun.");
       }
-      
     } on FirebaseAuthException catch (e) {
       Get.snackbar('Error Registrasi', _getFirebaseErrorMessage(e), snackPosition: SnackPosition.BOTTOM);
     } catch (e) {
-      // Jika terjadi error (misal, _saveUserProfile gagal), log out user
-      // untuk mencegah state yang tidak konsisten (login tapi tanpa profil).
       await signOut();
       Get.snackbar('Error', 'Terjadi kesalahan tak terduga: ${e.toString()}', snackPosition: SnackPosition.BOTTOM);
     } finally {
@@ -162,12 +136,10 @@ class AuthController extends GetxController {
     }
   }
   
-  // PERBAIKAN: Logika Login yang lebih bersih.
   Future<void> login(String email, String password) async {
     try {
       isLoading.value = true;
       await _auth.signInWithEmailAndPassword(email: email, password: password);
-      // Navigasi akan dihandle oleh listener 'ever'.
     } on FirebaseAuthException catch (e) {
       Get.snackbar('Error Login', _getFirebaseErrorMessage(e), snackPosition: SnackPosition.BOTTOM);
     } catch (e) {
@@ -177,41 +149,25 @@ class AuthController extends GetxController {
     }
   }
   
-  // PERBAIKAN: Logika Google Sign In yang lebih solid.
   Future<void> signInWithGoogle() async {
     try {
       isLoading.value = true;
-      
+      // ignore: body_might_complete_normally_catch_error
       await _googleSignIn.signOut().catchError((_) {});
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-      
       if (googleUser == null) { 
         isLoading.value = false; 
         return; 
       }
-      
       final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
       final AuthCredential credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken, 
         idToken: googleAuth.idToken
       );
-      
       final userCredential = await _auth.signInWithCredential(credential);
       final user = userCredential.user;
-
       if (user != null) {
-        // Cek jika ini adalah login pertama kali, lalu simpan profilnya.
-        // Firestore akan memberi tahu kita jika user baru.
-        final docRef = _firestore.collection('users').doc(user.uid);
-        final docSnap = await docRef.get();
-        
-        if (!docSnap.exists) {
-          // User baru, simpan profilnya.
-          await _saveUserProfile(user);
-        } else {
-          // User lama, cukup perbarui nama jika perlu (misal, nama di akun google berubah).
-          await _saveUserProfile(user);
-        }
+        await _saveUserProfile(user);
       }
     } on FirebaseAuthException catch (e) {
       Get.snackbar('Error', _getFirebaseErrorMessage(e), snackPosition: SnackPosition.BOTTOM);
@@ -221,24 +177,20 @@ class AuthController extends GetxController {
       isLoading.value = false;
     }
   }
-  
+
   Future<void> signOut() async {
     try {
-      // PERBAIKAN: Hentikan stream sebelum logout untuk mencegah error PERMISSION_DENIED
-      // Ini adalah contoh, idealnya stream subscription di-dispose di controller masing-masing.
-      // Namun, logout global adalah cara paling pasti.
       await Future.wait([
         _googleSignIn.signOut(),
         _auth.signOut(),
+      // ignore: body_might_complete_normally_catch_error
       ]).catchError((_) {});
-      // Navigasi akan dihandle oleh listener 'ever'.
     } catch (e) {
       Get.snackbar('Error', 'Gagal sign out: ${e.toString()}', snackPosition: SnackPosition.BOTTOM);
     }
   }
   
   String _getFirebaseErrorMessage(FirebaseAuthException e) {
-    // ... (Fungsi ini sudah bagus, tidak perlu diubah)
     switch (e.code) {
       case 'user-not-found': 
         return 'Tidak ada pengguna yang ditemukan dengan email ini.';

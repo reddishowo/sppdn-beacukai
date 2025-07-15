@@ -1,3 +1,5 @@
+// lib/app/modules/add_activity/controllers/add_activity_controller.dart
+
 import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -9,7 +11,7 @@ import 'package:sppdn/app/modules/auth/controllers/auth_controller.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http;
-import 'package:intl/intl.dart'; // <-- TAMBAHKAN IMPORT INI
+import 'package:intl/intl.dart';
 
 class AddActivityController extends GetxController {
   // State
@@ -25,30 +27,55 @@ class AddActivityController extends GetxController {
 
   // Data
   late int floor;
-  late List<String> roomList;
-  late DateTime activityTimestamp; // <-- TAMBAHKAN STATE UNTUK WAKTU
+  late DateTime activityTimestamp;
   String get officerName => _authController.firebaseUser.value?.displayName ?? 'Nama Tidak Ditemukan';
 
+  // **PERUBAHAN: roomList sekarang reaktif**
+  var roomList = <String>[].obs;
+
   // Formatters
-  // <-- TAMBAHKAN FORMATTER
   String get formattedDate => DateFormat('EEEE, dd MMMM yyyy', 'id_ID').format(activityTimestamp);
   String get formattedTime => DateFormat('HH:mm', 'id_ID').format(activityTimestamp);
 
-
-  // Daftar ruangan (tetap sama)
-  final Map<int, List<String>> _allRooms = {
-    1: ['R. DOKTER', 'R. LABELING', 'R. PPNPN', 'LORONG LAB', 'TOILET LOBBY', 'R. SPEKTOMETER', 'R. KIMIA FISIK', 'RUANG TRANSIT', 'LOBBY DEPAN', 'TERAS', 'TOILET KIMBAS COWO', 'TOILET KIMBAS CEWE', 'R. KIMBAS', 'R. BAHAN KIMIA', 'R. ALAT GELAS', 'R. XRF', 'R. ASAM', 'R. PREPARASI', 'R. TIMBANG', 'R. OES', 'R. THREMAL', 'R. KROMATOGRAFI'],
-    2: ['TOILET COWO LT 2', 'R. KA BALAI', 'R. TEKNIS II', 'R. HUMAS', 'TOILET KA BALAI', 'LORONG ATAS', 'TANGGA', 'R. RAPAT', 'R. TEKNIS I', 'R. SBU', 'R. PE', 'R. ABW', 'MUSHOLLA', 'TOILET CEWE LT 2', 'R. MAKAN', 'R. ANAK DAN LAKTASI', 'GUDANG ARSIP', 'PANTRI']
-  };
+  // **PERUBAHAN: Hapus daftar ruangan statis**
+  // final Map<int, List<String>> _allRooms = { ... };
 
   @override
   void onInit() {
     super.onInit();
     floor = Get.arguments as int;
-    roomList = _allRooms[floor] ?? [];
-    activityTimestamp = DateTime.now(); // <-- INISIALISASI WAKTU SAAT INI
+    activityTimestamp = DateTime.now();
+    // **PERUBAHAN: Panggil fungsi untuk mengambil data ruangan dari Firestore**
+    _fetchRooms();
   }
 
+  // **FUNGSI BARU: Mengambil daftar ruangan dari Firestore**
+  Future<void> _fetchRooms() async {
+    // Tampilkan loading di dropdown
+    isLoading.value = true; 
+    try {
+      final doc = await _firestore.collection('settings').doc('room_list').get();
+      if (doc.exists) {
+        final data = doc.data() as Map<String, dynamic>;
+        final floorKey = 'lantai_$floor';
+        if (data.containsKey(floorKey)) {
+          // Update daftar ruangan yang reaktif
+          roomList.assignAll(List<String>.from(data[floorKey]));
+        } else {
+          Get.snackbar('Error Data', 'Data ruangan untuk lantai $floor tidak ditemukan di database.');
+        }
+      } else {
+        Get.snackbar('Error Konfigurasi', 'Dokumen konfigurasi ruangan tidak ditemukan.');
+      }
+    } catch (e) {
+      Get.snackbar('Error', 'Gagal memuat data ruangan: ${e.toString()}');
+    } finally {
+      // Sembunyikan loading
+      isLoading.value = false;
+    }
+  }
+
+  // ... (Sisa fungsi: pickImage, _compressImage, _uploadToImgBB, saveActivity, cancel tidak berubah)
   Future<void> pickImage() async {
     final pickedFile = await _picker.pickImage(source: ImageSource.camera);
     if (pickedFile != null) {
@@ -97,8 +124,7 @@ class AddActivityController extends GetxController {
       return null;
     }
   }
-
-  // **PERUBAHAN PADA LOGIKA PENYIMPANAN**
+  
   Future<void> saveActivity() async {
     if (!(formKey.currentState?.validate() ?? false)) {
       Get.snackbar('Error', 'Harap lengkapi semua data yang diperlukan.', snackPosition: SnackPosition.BOTTOM);
@@ -125,8 +151,8 @@ class AddActivityController extends GetxController {
         'room': selectedRoom.value,
         'floor': floor,
         'imageUrl': imageUrl,
-        'activityTimestamp': Timestamp.fromDate(activityTimestamp), // <-- SIMPAN TIMESTAMP YANG DITAMPILKAN KE USER
-        'createdAt': FieldValue.serverTimestamp(), // Tetap simpan server timestamp untuk sorting
+        'activityTimestamp': Timestamp.fromDate(activityTimestamp),
+        'createdAt': FieldValue.serverTimestamp(),
       });
 
       Get.back();

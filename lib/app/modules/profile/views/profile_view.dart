@@ -1,6 +1,9 @@
+// lib/app/modules/profile/views/profile_view.dart
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../auth/controllers/auth_controller.dart'; // Import AuthController untuk isLoading
+import 'package:sppdn/app/routes/app_pages.dart';
+import '../../auth/controllers/auth_controller.dart'; 
 import '../controllers/profile_controller.dart';
 
 class ProfileView extends GetView<ProfileController> {
@@ -72,27 +75,41 @@ class ProfileView extends GetView<ProfileController> {
     );
   }
 
+  // **PERUBAHAN: Menu 'Edit Profil' dihapus**
   Widget _buildActionsMenu(BuildContext context) {
     return Card(
       elevation: 2,
       shadowColor: Colors.grey.withOpacity(0.2),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Column(
-        children: [
-          _buildProfileMenuItem(
-            icon: Icons.edit_outlined,
-            text: 'Edit Profil',
-            // **PERUBAHAN: GANTI onTap UNTUK MEMANGGIL DIALOG**
-            onTap: () => _showEditProfileDialog(context),
-          ),
-          const Divider(height: 1, indent: 16, endIndent: 16),
-          _buildProfileMenuItem(
-            icon: Icons.logout,
-            text: 'Sign Out',
-            textColor: Colors.red,
-            onTap: () => _showLogoutDialog(context),
-          ),
-        ],
+      child: GetBuilder<AuthController>(
+        builder: (authController) {
+          return Column(
+            children: [
+              // **Menu 'Edit Profil' telah dihapus dari sini**
+
+              // Menu ini hanya tampil jika user adalah admin
+              if (authController.isAdmin) ...[
+                _buildProfileMenuItem(
+                  icon: Icons.room_preferences_rounded,
+                  text: 'Kelola Ruangan',
+                  onTap: () {
+                    Get.toNamed(Routes.MANAGE_ROOMS);
+                  },
+                ),
+                // Divider ini hanya muncul jika menu 'Kelola Ruangan' ada
+                const Divider(height: 1, indent: 16, endIndent: 16),
+              ],
+              
+              // Menu Sign Out selalu ada
+              _buildProfileMenuItem(
+                icon: Icons.logout,
+                text: 'Sign Out',
+                textColor: Colors.red,
+                onTap: () => _showLogoutDialog(context),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -134,91 +151,5 @@ class ProfileView extends GetView<ProfileController> {
     );
   }
 
-  // **WIDGET BARU: DIALOG UNTUK EDIT PROFIL**
-  void _showEditProfileDialog(BuildContext context) {
-    // Set ulang text controller ke nama saat ini setiap kali dialog dibuka
-    controller.nameController.text = controller.displayName;
-
-    Get.dialog(
-      AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Edit Profil', textAlign: TextAlign.center),
-        content: Form(
-          key: controller.formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: controller.nameController,
-                textCapitalization: TextCapitalization.words,
-                decoration: InputDecoration(
-                  labelText: 'Nama Lengkap',
-                  prefixIcon: const Icon(Icons.person_outline),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Nama tidak boleh kosong';
-                  }
-                  return null;
-                },
-              ),
-            ],
-          ),
-        ),
-        actionsAlignment: MainAxisAlignment.center,
-        actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-        actions: [
-          // Gunakan Obx untuk menonaktifkan tombol saat loading
-          Obx(() => Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: AuthController.instance.isLoading.value
-                          ? null
-                          : () => Get.back(),
-                      child: const Text('Batal'),
-                      style: OutlinedButton.styleFrom(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: AuthController.instance.isLoading.value
-                          ? null
-                          : controller.saveProfileChanges,
-                      child: AuthController.instance.isLoading.value
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2,
-                              ),
-                            )
-                          : const Text('Simpan'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                    ),
-                  ),
-                ],
-              )),
-        ],
-      ),
-      barrierDismissible: false, // Mencegah dialog tertutup saat area luar disentuh
-    );
-  }
+  // **PERUBAHAN: Fungsi _showEditProfileDialog telah dihapus sepenuhnya**
 }
