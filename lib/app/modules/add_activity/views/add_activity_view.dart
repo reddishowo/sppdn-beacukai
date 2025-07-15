@@ -1,3 +1,5 @@
+// lib/app/modules/add_activity/views/add_activity_view.dart
+
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -10,10 +12,9 @@ class AddActivityView extends GetView<AddActivityController> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Tambah Kegiatan - Lantai ${controller.floor}'),
-        centerTitle: true,
+        title: Text('Add Activity - Floor ${controller.floor}'),
       ),
-      backgroundColor: Colors.grey.shade100,
+      // The background color is now inherited from the global theme
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Form(
@@ -21,55 +22,50 @@ class AddActivityView extends GetView<AddActivityController> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Field Nama Petugas (Read-only)
               _buildReadOnlyTextField(
-                label: 'Nama Petugas',
+                context,
+                label: 'Officer Name',
                 icon: Icons.person,
                 value: controller.officerName,
               ),
               const SizedBox(height: 16),
-
-              // Dropdown Pilihan Ruangan
-              _buildRoomDropdown(),
+              _buildRoomDropdown(context),
               const SizedBox(height: 16),
-              
-              // Tampilan Foto
-              _buildPhotoPicker(),
+              _buildPhotoPicker(context),
               const SizedBox(height: 16),
-
-              // **PERUBAHAN: TAMPILKAN TANGGAL DAN JAM OTOMATIS**
               _buildReadOnlyTextField(
-                label: 'Tanggal Kegiatan',
+                context,
+                label: 'Activity Date',
                 icon: Icons.calendar_today,
-                value: controller.formattedDate, // Ambil dari controller
+                value: controller.formattedDate,
               ),
               const SizedBox(height: 16),
-              
               _buildReadOnlyTextField(
-                label: 'Jam Kegiatan',
+                context,
+                label: 'Activity Time',
                 icon: Icons.access_time_filled,
-                value: controller.formattedTime, // Ambil dari controller
+                value: controller.formattedTime,
               ),
               const SizedBox(height: 32),
             ],
           ),
         ),
       ),
-      // Tombol Aksi di bagian bawah
-      bottomNavigationBar: _buildActionButtons(),
+      bottomNavigationBar: _buildActionButtons(context),
     );
   }
 
-  // Widget untuk field read-only
-  Widget _buildReadOnlyTextField({required String label, required IconData icon, required String value}) {
+  Widget _buildReadOnlyTextField(BuildContext context, {required String label, required IconData icon, required String value}) {
+    // This now uses theme colors for a disabled/read-only state
     return TextFormField(
       initialValue: value,
       readOnly: true,
       decoration: InputDecoration(
         labelText: label,
-        prefixIcon: Icon(icon, color: Colors.grey),
+        prefixIcon: Icon(icon, color: Theme.of(context).hintColor),
         filled: true,
-        fillColor: Colors.grey.shade200,
+        // Using a subtle theme color for the background
+        fillColor: Theme.of(context).colorScheme.surface.withOpacity(0.5),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,
@@ -78,53 +74,52 @@ class AddActivityView extends GetView<AddActivityController> {
     );
   }
 
-  // Widget untuk dropdown ruangan
-  Widget _buildRoomDropdown() {
+  Widget _buildRoomDropdown(BuildContext context) {
+    // The InputDecoration now fully relies on the global theme
     return Obx(() => DropdownButtonFormField<String>(
       value: controller.selectedRoom.value,
       isExpanded: true,
       decoration: InputDecoration(
-        labelText: 'Ruangan',
-        prefixIcon: const Icon(Icons.meeting_room, color: Colors.grey),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        labelText: 'Room',
+        prefixIcon: Icon(Icons.meeting_room, color: Theme.of(context).hintColor),
+        hintText: 'Select a room',
       ),
-      hint: const Text('Pilih ruangan'),
       items: controller.roomList.map((String room) {
         return DropdownMenuItem<String>(value: room, child: Text(room));
       }).toList(),
       onChanged: (value) {
         controller.selectedRoom.value = value;
       },
-      validator: (value) => value == null ? 'Pilih ruangan terlebih dahulu' : null,
+      validator: (value) => value == null ? 'Please select a room first' : null,
     ));
   }
-  
-  // Widget untuk pemilih foto
-  Widget _buildPhotoPicker() {
+
+  Widget _buildPhotoPicker(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Foto Kegiatan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        Text('Activity Photo', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         Center(
           child: GestureDetector(
             onTap: controller.pickImage,
             child: Obx(() {
+              // The container now uses theme colors for its placeholder state
               return Container(
                 height: 200,
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade200,
+                  color: Theme.of(context).colorScheme.surfaceVariant,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.shade300, style: BorderStyle.solid),
+                  border: Border.all(color: Theme.of(context).dividerColor),
                 ),
                 child: controller.imageFile.value == null
-                    ? const Column(
+                    ? Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.camera_alt, size: 50, color: Colors.grey),
-                          SizedBox(height: 8),
-                          Text('Ketuk untuk mengambil foto'),
+                          Icon(Icons.camera_alt, size: 50, color: Theme.of(context).hintColor),
+                          const SizedBox(height: 8),
+                          Text('Tap to take a photo', style: TextStyle(color: Theme.of(context).hintColor)),
                         ],
                       )
                     : ClipRRect(
@@ -141,9 +136,9 @@ class AddActivityView extends GetView<AddActivityController> {
       ],
     );
   }
-  
-  // Widget untuk tombol aksi
-  Widget _buildActionButtons() {
+
+  Widget _buildActionButtons(BuildContext context) {
+    // The buttons now get their entire style from the global theme
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Obx(() => Row(
@@ -151,30 +146,21 @@ class AddActivityView extends GetView<AddActivityController> {
           Expanded(
             child: OutlinedButton(
               onPressed: controller.isLoading.value ? null : controller.cancel,
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              child: const Text('Batal'),
+              child: const Text('Cancel'),
             ),
           ),
           const SizedBox(width: 16),
           Expanded(
             child: ElevatedButton(
               onPressed: controller.isLoading.value ? null : controller.saveActivity,
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                backgroundColor: Colors.blue,
-                foregroundColor: Colors.white,
-              ),
               child: controller.isLoading.value
                   ? const SizedBox(
                       width: 20,
                       height: 20,
-                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                      // The indicator color is now inherited from the button's theme
+                      child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Text('Simpan'),
+                  : const Text('Save'),
             ),
           ),
         ],

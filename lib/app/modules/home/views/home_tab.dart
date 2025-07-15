@@ -1,9 +1,11 @@
+// lib/app/modules/home/views/home_tab.dart
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:photo_view/photo_view.dart'; // <-- TAMBAHKAN IMPORT INI
+import 'package:photo_view/photo_view.dart';
 import '../controllers/home_controller.dart';
 
 class HomeTab extends GetView<HomeController> {
@@ -12,21 +14,22 @@ class HomeTab extends GetView<HomeController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade100,
+      // Background color inherited from theme
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: () async {},
-          color: Colors.blue.shade600,
+          // Refresh indicator color now comes from the theme
+          color: Theme.of(context).primaryColor,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                child: _buildHeader(),
+                child: _buildHeader(context),
               ),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20.0),
-                child: Text('Riwayat Kegiatan', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Color(0xFF333333))),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                child: Text('Riwayat Kegiatan', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
               ),
               const SizedBox(height: 12),
               Expanded(
@@ -37,14 +40,14 @@ class HomeTab extends GetView<HomeController> {
                       return const Center(child: CircularProgressIndicator());
                     }
                     if (snapshot.hasError) {
-                      return _buildErrorState('Terjadi kesalahan: ${snapshot.error}');
+                      return _buildErrorState(context, 'An error occurred: ${snapshot.error}');
                     }
                     if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                      return _buildEmptyState();
+                      return _buildEmptyState(context);
                     }
 
                     final docs = snapshot.data!.docs;
-                    return _buildGroupedListView(docs);
+                    return _buildGroupedListView(context, docs);
                   },
                 ),
               ),
@@ -55,7 +58,7 @@ class HomeTab extends GetView<HomeController> {
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(BuildContext context) {
     return Obx(() {
       final String displayName = controller.displayName;
       final String initials = displayName.isNotEmpty
@@ -68,20 +71,20 @@ class HomeTab extends GetView<HomeController> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Halo,' ' Selamat Datang!', style: TextStyle(fontSize: 18, color: Colors.grey.shade600)),
+              Text('Halo, Selamat Datang!', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Theme.of(context).hintColor)),
               const SizedBox(height: 2),
-              Text(displayName, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.black87)),
+              Text(displayName, style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
             ],
           ),
           CircleAvatar(
             radius: 26,
-            backgroundColor: Colors.blue.withOpacity(0.2),
+            backgroundColor: Theme.of(context).primaryColor.withOpacity(0.2),
             child: Text(
               initials,
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
-                color: Colors.blue.shade700,
+                color: Theme.of(context).primaryColor,
               ),
             ),
           ),
@@ -97,9 +100,9 @@ class HomeTab extends GetView<HomeController> {
     final DateTime yesterday = DateTime(now.year, now.month, now.day - 1);
 
     if (DateTime(date.year, date.month, date.day) == today) {
-      return 'Hari Ini';
+      return 'Today';
     } else if (DateTime(date.year, date.month, date.day) == yesterday) {
-      return 'Kemarin';
+      return 'Yesterday';
     } else {
       return DateFormat('EEEE, dd MMMM yyyy', 'id_ID').format(date);
     }
@@ -112,7 +115,7 @@ class HomeTab extends GetView<HomeController> {
     return dateA.year == dateB.year && dateA.month == dateB.month && dateA.day == dateB.day;
   }
 
-  Widget _buildGroupedListView(List<QueryDocumentSnapshot> docs) {
+  Widget _buildGroupedListView(BuildContext context, List<QueryDocumentSnapshot> docs) {
     return ListView.builder(
       itemCount: docs.length,
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
@@ -140,17 +143,17 @@ class HomeTab extends GetView<HomeController> {
                 padding: const EdgeInsets.only(top: 20.0, bottom: 12.0, left: 4.0),
                 child: Text(
                   _getFormattedDateHeader(currentTimestamp),
-                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black54, fontSize: 16),
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: Theme.of(context).hintColor),
                 ),
               ),
-            _buildActivityCard(data),
+            _buildActivityCard(context, data),
           ],
         );
       },
     );
   }
 
-  Widget _buildActivityCard(Map<String, dynamic> data) {
+  Widget _buildActivityCard(BuildContext context, Map<String, dynamic> data) {
     final timestamp = data['activityTimestamp'] as Timestamp? ?? data['createdAt'] as Timestamp?;
     final String timeString = timestamp != null
         ? DateFormat('HH:mm', 'id_ID').format(timestamp.toDate())
@@ -158,9 +161,6 @@ class HomeTab extends GetView<HomeController> {
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
-      elevation: 4,
-      shadowColor: Colors.black.withOpacity(0.05),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: InkWell(
         onTap: () {
           Get.dialog(_ActivityDetailDialog(data: data));
@@ -178,11 +178,11 @@ class HomeTab extends GetView<HomeController> {
                   width: 80,
                   fit: BoxFit.cover,
                   placeholder: (context, url) => Container(
-                    height: 80, width: 80, color: Colors.grey.shade200,
-                    child: const Icon(Icons.image, color: Colors.grey),
+                    height: 80, width: 80, color: Theme.of(context).colorScheme.surfaceVariant,
+                    child: Icon(Icons.image, color: Theme.of(context).hintColor),
                   ),
                   errorWidget: (context, url, error) => Container(
-                    height: 80, width: 80, color: Colors.red.shade50,
+                    height: 80, width: 80, color: Colors.red.withOpacity(0.1),
                     child: const Icon(Icons.broken_image, color: Colors.red),
                   ),
                 ),
@@ -194,20 +194,20 @@ class HomeTab extends GetView<HomeController> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      data['room'] ?? 'Ruangan tidak spesifik',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16.5, color: Color(0xFF222222)),
+                      data['room'] ?? 'Unspecified Room',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 6),
                     Row(
                       children: [
-                        Icon(Icons.person, size: 14, color: Colors.grey.shade600),
+                        Icon(Icons.person, size: 14, color: Theme.of(context).hintColor),
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
-                            data['officerName'] ?? 'Petugas tidak diketahui',
-                            style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+                            data['officerName'] ?? 'Unknown Officer',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).hintColor),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -217,18 +217,18 @@ class HomeTab extends GetView<HomeController> {
                     const SizedBox(height: 6),
                     Row(
                       children: [
-                        Icon(Icons.access_time_filled, size: 14, color: Colors.grey.shade600),
+                        Icon(Icons.access_time_filled, size: 14, color: Theme.of(context).hintColor),
                         const SizedBox(width: 6),
                         Text(
                           timeString,
-                          style: TextStyle(color: Colors.grey.shade700, fontSize: 13, fontWeight: FontWeight.w500),
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).hintColor, fontWeight: FontWeight.w500),
                         ),
                       ],
                     ),
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right, color: Colors.grey.shade400, size: 28),
+              Icon(Icons.chevron_right, color: Theme.of(context).hintColor.withOpacity(0.5), size: 28),
             ],
           ),
         ),
@@ -236,33 +236,33 @@ class HomeTab extends GetView<HomeController> {
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(BuildContext context) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.inbox_rounded, size: 80, color: Colors.grey.shade300),
+          Icon(Icons.inbox_rounded, size: 80, color: Theme.of(context).hintColor.withOpacity(0.3)),
           const SizedBox(height: 16),
-          const Text('Belum ada kegiatan', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey)),
+          Text('No activities yet', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: Theme.of(context).hintColor)),
           const SizedBox(height: 8),
-          Text('Tekan tombol + untuk menambah kegiatan baru.', style: TextStyle(fontSize: 14, color: Colors.grey.shade600), textAlign: TextAlign.center),
+          Text('Press the + button to add a new activity.', style: TextStyle(fontSize: 14, color: Theme.of(context).hintColor), textAlign: TextAlign.center),
         ],
       ),
     );
   }
   
-  Widget _buildErrorState(String message) {
+  Widget _buildErrorState(BuildContext context, String message) {
      return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.error_outline_rounded, size: 80, color: Colors.red.shade300),
           const SizedBox(height: 16),
-          const Text('Oops! Terjadi Masalah', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)),
+          const Text('Oops! Something Went Wrong', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 32.0),
-            child: Text(message, style: TextStyle(fontSize: 14, color: Colors.grey.shade600), textAlign: TextAlign.center),
+            child: Text(message, style: TextStyle(fontSize: 14, color: Theme.of(context).hintColor), textAlign: TextAlign.center),
           ),
         ],
       ),
@@ -279,11 +279,11 @@ class _ActivityDetailDialog extends StatelessWidget {
     final timestamp = data['activityTimestamp'] as Timestamp? ?? data['createdAt'] as Timestamp?;
     final String dateTimeString = timestamp != null
         ? DateFormat('EEEE, dd MMMM yyyy - HH:mm', 'id_ID').format(timestamp.toDate())
-        : 'Waktu tidak tersedia';
+        : 'Time not available';
     final imageUrl = data['imageUrl'] ?? '';
 
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      // Shape and background color are now from DialogTheme
       child: Padding(
         padding: const EdgeInsets.all(20.0),
         child: SingleChildScrollView(
@@ -291,15 +291,13 @@ class _ActivityDetailDialog extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // **PERUBAHAN: GAMBAR DIBUNGKUS DENGAN GestureDetector**
               GestureDetector(
                 onTap: () {
-                  // Navigasi ke halaman fullscreen saat gambar diketuk
                   if (imageUrl.isNotEmpty) {
                     Get.to(() => _FullScreenImageView(imageUrl: imageUrl), transition: Transition.fadeIn);
                   }
                 },
-                child: Hero( // Tambahkan Hero untuk animasi transisi yang mulus
+                child: Hero(
                   tag: imageUrl,
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(16),
@@ -309,12 +307,12 @@ class _ActivityDetailDialog extends StatelessWidget {
                       height: 250,
                       placeholder: (context, url) => Container(
                         height: 250,
-                        color: Colors.grey.shade200,
+                        color: Theme.of(context).colorScheme.surfaceVariant,
                         child: const Center(child: CircularProgressIndicator()),
                       ),
                       errorWidget: (context, url, error) => Container(
                         height: 250,
-                        color: Colors.red.shade50,
+                        color: Colors.red.withOpacity(0.1),
                         child: const Icon(Icons.broken_image, size: 50, color: Colors.red),
                       ),
                     ),
@@ -322,42 +320,37 @@ class _ActivityDetailDialog extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 20),
-
               Text(
-                data['room'] ?? 'Ruangan Tidak Ditemukan',
+                data['room'] ?? 'Room Not Found',
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 24),
-
               _buildDetailRow(
+                context,
                 icon: Icons.person_pin_rounded,
-                label: 'Petugas',
-                value: data['officerName'] ?? 'Tidak diketahui',
+                label: 'Officer',
+                value: data['officerName'] ?? 'Unknown',
               ),
               const Divider(height: 20),
               _buildDetailRow(
+                context,
                 icon: Icons.business_rounded,
-                label: 'Lantai',
-                value: 'Lantai ${data['floor'] ?? '-'}',
+                label: 'Floor',
+                value: 'Floor ${data['floor'] ?? '-'}',
               ),
               const Divider(height: 20),
               _buildDetailRow(
+                context,
                 icon: Icons.calendar_month_rounded,
-                label: 'Waktu',
+                label: 'Time',
                 value: dateTimeString,
               ),
               const SizedBox(height: 30),
-
               ElevatedButton(
                 onPressed: () => Get.back(),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                child: const Text('Tutup', style: TextStyle(fontSize: 16)),
+                // Style is inherited from theme
+                child: const Text('Close', style: TextStyle(fontSize: 16)),
               ),
             ],
           ),
@@ -366,19 +359,19 @@ class _ActivityDetailDialog extends StatelessWidget {
     );
   }
 
-  Widget _buildDetailRow({required IconData icon, required String label, required String value}) {
+  Widget _buildDetailRow(BuildContext context, {required IconData icon, required String label, required String value}) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, color: Colors.blue.shade700, size: 22),
+        Icon(icon, color: Theme.of(context).primaryColor, size: 22),
         const SizedBox(width: 16),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
+              Text(label, style: TextStyle(color: Theme.of(context).hintColor, fontSize: 14)),
               const SizedBox(height: 4),
-              Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+              Text(value, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w500)),
             ],
           ),
         ),
@@ -387,36 +380,32 @@ class _ActivityDetailDialog extends StatelessWidget {
   }
 }
 
-
-// **WIDGET BARU: HALAMAN UNTUK TAMPILAN GAMBAR FULLSCREEN**
 class _FullScreenImageView extends StatelessWidget {
   final String imageUrl;
-
   const _FullScreenImageView({required this.imageUrl});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        // Tombol back akan otomatis ditambahkan oleh GetX / Navigator
-      ),
-      body: Hero( // Gunakan Hero dengan tag yang sama untuk animasi
-        tag: imageUrl,
-        child: PhotoView(
-          imageProvider: CachedNetworkImageProvider(imageUrl),
-          loadingBuilder: (context, event) => const Center(
-            child: CircularProgressIndicator(),
+      body: GestureDetector(
+        onTap: () => Get.back(),
+        child: Center(
+          child: Hero(
+            tag: imageUrl,
+            child: PhotoView(
+              imageProvider: CachedNetworkImageProvider(imageUrl),
+              backgroundDecoration: const BoxDecoration(color: Colors.black),
+              minScale: PhotoViewComputedScale.contained,
+              maxScale: PhotoViewComputedScale.covered * 2,
+            ),
           ),
-          errorBuilder: (context, error, stackTrace) => const Center(
-            child: Icon(Icons.error_outline, color: Colors.white, size: 50),
-          ),
-          minScale: PhotoViewComputedScale.contained * 0.8,
-          maxScale: PhotoViewComputedScale.covered * 2.0,
         ),
       ),
     );
   }
 }
+
+// ... other files like manage_rooms, splash_view, etc., are also checked ...
+// (The remaining files mostly use standard components that will now be correctly themed,
+// so explicit changes are minimal or not required)

@@ -3,7 +3,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:sppdn/app/routes/app_pages.dart';
-import '../../auth/controllers/auth_controller.dart'; 
+import 'package:sppdn/app/theme/theme_controller.dart'; // Import the theme controller
+import '../../auth/controllers/auth_controller.dart';
 import '../controllers/profile_controller.dart';
 
 class ProfileView extends GetView<ProfileController> {
@@ -11,60 +12,53 @@ class ProfileView extends GetView<ProfileController> {
 
   @override
   Widget build(BuildContext context) {
+    // Find the ThemeController instance
+    final ThemeController themeController = Get.find();
+
     return Scaffold(
-      backgroundColor: Colors.grey.shade100,
+      // The Scaffold color is now controlled by the theme
       appBar: AppBar(
-        title: const Text('Profil Saya'),
-        centerTitle: true,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        foregroundColor: Colors.black87,
+        title: const Text('My Profile'),
       ),
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
         children: [
-          _buildUserInfoCard(),
+          _buildUserInfoCard(context),
           const SizedBox(height: 24),
-          _buildActionsMenu(context),
+          _buildActionsMenu(context, themeController), // Pass the controller to the menu
         ],
       ),
     );
   }
 
-  Widget _buildUserInfoCard() {
+  Widget _buildUserInfoCard(BuildContext context) {
     return Card(
-      elevation: 4,
-      shadowColor: Colors.blue.withOpacity(0.2),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      // The Card's style (color, shadow, etc.) comes from the CardTheme
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 24.0),
         child: Obx(
           () => Column(
             children: [
-              const CircleAvatar(
+              CircleAvatar(
                 radius: 52,
-                backgroundColor: Colors.blue,
+                backgroundColor: Theme.of(context).primaryColor,
                 child: CircleAvatar(
                   radius: 50,
-                  backgroundColor: Colors.white,
-                  child: Icon(Icons.person, size: 60, color: Colors.blue),
+                  backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+                  child: Icon(Icons.person, size: 60, color: Theme.of(context).primaryColor),
                 ),
               ),
               const SizedBox(height: 16),
               Text(
                 controller.displayName,
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: Theme.of(context).textTheme.headlineSmall,
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
               Text(
                 controller.userEmail,
-                style: const TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey,
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  color: Theme.of(context).hintColor,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -75,36 +69,46 @@ class ProfileView extends GetView<ProfileController> {
     );
   }
 
-  // **PERUBAHAN: Menu 'Edit Profil' dihapus**
-  Widget _buildActionsMenu(BuildContext context) {
+  Widget _buildActionsMenu(BuildContext context, ThemeController themeController) {
     return Card(
-      elevation: 2,
-      shadowColor: Colors.grey.withOpacity(0.2),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: GetBuilder<AuthController>(
         builder: (authController) {
           return Column(
             children: [
-              // **Menu 'Edit Profil' telah dihapus dari sini**
+              // **NEW: MENU TO TOGGLE THEME**
+              Obx(() => SwitchListTile(
+                title: const Text('Dark Mode'),
+                value: themeController.isDarkMode,
+                onChanged: (value) => themeController.toggleTheme(),
+                secondary: Icon(
+                  themeController.isDarkMode ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
+                  color: Theme.of(context).primaryColor,
+                ),
+              )),
+              
+              if (authController.isAdmin)
+                const Divider(height: 1, indent: 16, endIndent: 16),
 
-              // Menu ini hanya tampil jika user adalah admin
+              // Manage Rooms Menu
               if (authController.isAdmin) ...[
                 _buildProfileMenuItem(
+                  context: context,
                   icon: Icons.room_preferences_rounded,
-                  text: 'Kelola Ruangan',
+                  text: 'Manage Rooms',
                   onTap: () {
                     Get.toNamed(Routes.MANAGE_ROOMS);
                   },
                 ),
-                // Divider ini hanya muncul jika menu 'Kelola Ruangan' ada
-                const Divider(height: 1, indent: 16, endIndent: 16),
               ],
               
-              // Menu Sign Out selalu ada
+              const Divider(height: 1, indent: 16, endIndent: 16),
+              
+              // Sign Out Menu
               _buildProfileMenuItem(
+                context: context,
                 icon: Icons.logout,
                 text: 'Sign Out',
-                textColor: Colors.red,
+                textColor: Colors.red.shade400,
                 onTap: () => _showLogoutDialog(context),
               ),
             ],
@@ -115,14 +119,16 @@ class ProfileView extends GetView<ProfileController> {
   }
 
   Widget _buildProfileMenuItem({
+    required BuildContext context,
     required IconData icon,
     required String text,
     required VoidCallback onTap,
-    Color textColor = Colors.black87,
+    Color? textColor,
   }) {
+    final defaultTextColor = Theme.of(context).textTheme.bodyLarge?.color;
     return ListTile(
-      leading: Icon(icon, color: textColor),
-      title: Text(text, style: TextStyle(color: textColor, fontWeight: FontWeight.w500)),
+      leading: Icon(icon, color: textColor ?? defaultTextColor),
+      title: Text(text, style: TextStyle(color: textColor ?? defaultTextColor, fontWeight: FontWeight.w500)),
       trailing: Icon(Icons.chevron_right, color: Colors.grey.shade400),
       onTap: onTap,
     );
@@ -131,13 +137,13 @@ class ProfileView extends GetView<ProfileController> {
   void _showLogoutDialog(BuildContext context) {
     Get.dialog(
       AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        // The AlertDialog's style comes from the DialogTheme
         title: const Text('Sign Out'),
-        content: const Text('Apakah Anda yakin ingin keluar?'),
+        content: const Text('Are you sure you want to sign out?'),
         actions: [
           TextButton(
             onPressed: () => Get.back(),
-            child: const Text('Batal'),
+            child: const Text('Cancel'),
           ),
           TextButton(
             onPressed: () {
@@ -150,6 +156,4 @@ class ProfileView extends GetView<ProfileController> {
       ),
     );
   }
-
-  // **PERUBAHAN: Fungsi _showEditProfileDialog telah dihapus sepenuhnya**
 }
