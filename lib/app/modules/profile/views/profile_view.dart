@@ -95,7 +95,7 @@ class ProfileView extends GetView<ProfileController> {
                 _buildProfileMenuItem(
                   context: context,
                   icon: Icons.room_preferences_rounded,
-                  text: 'Manage Rooms',
+                  text: 'Kelola Ruangan',
                   onTap: () {
                     Get.toNamed(Routes.MANAGE_ROOMS);
                   },
