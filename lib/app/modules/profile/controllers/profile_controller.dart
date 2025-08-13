@@ -14,15 +14,7 @@ class ProfileController extends GetxController {
   String get displayName => _authController.firebaseUser.value?.displayName ?? 'Pengguna';
   
   // **PERUBAHAN: Tidak perlu lagi inisialisasi/dispose state edit**
-  @override
-  void onInit() {
-    super.onInit();
-  }
 
-  @override
-  void onClose() {
-    super.onClose();
-  }
 
   void signOut() {
     _authController.signOut();

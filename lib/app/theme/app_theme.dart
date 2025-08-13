@@ -18,12 +18,12 @@ class AppTheme {
     primaryColor: _primaryColor,
     scaffoldBackgroundColor: const Color(0xFFF5F8FA), // A very light bluish-gray
     fontFamily: 'Roboto', // Example font
-    appBarTheme: AppBarTheme(
+    appBarTheme: const AppBarTheme(
       elevation: 0,
-      backgroundColor: const Color(0xFFF5F8FA), // Scaffold color
+      backgroundColor: Color(0xFFF5F8FA), // Scaffold color
       foregroundColor: Colors.black87, // Icon and text color
       centerTitle: true,
-      titleTextStyle: const TextStyle(
+      titleTextStyle: TextStyle(
         color: Colors.black87,
         fontSize: 18,
         fontWeight: FontWeight.w600,
@@ -100,12 +100,12 @@ class AppTheme {
     primaryColor: _primaryColorDark,
     scaffoldBackgroundColor: const Color(0xFF121212), // Material Dark standard
     fontFamily: 'Roboto',
-    appBarTheme: AppBarTheme(
+    appBarTheme: const AppBarTheme(
       elevation: 0,
-      backgroundColor: const Color(0xFF1E1E1E), // Elevated surface color
+      backgroundColor: Color(0xFF1E1E1E), // Elevated surface color
       foregroundColor: Colors.white,
       centerTitle: true,
-      titleTextStyle: const TextStyle(
+      titleTextStyle: TextStyle(
         color: Colors.white,
         fontSize: 18,
         fontWeight: FontWeight.w600,
