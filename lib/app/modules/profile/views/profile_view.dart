@@ -90,6 +90,7 @@ class ProfileView extends GetView<ProfileController> {
                 const Divider(height: 1, indent: 16, endIndent: 16),
 
               // Manage Rooms Menu
+              // Manage Rooms & Export Menu for Admins
               if (authController.isAdmin) ...[
                 _buildProfileMenuItem(
                   context: context,
@@ -97,6 +98,16 @@ class ProfileView extends GetView<ProfileController> {
                   text: 'Manage Rooms',
                   onTap: () {
                     Get.toNamed(Routes.MANAGE_ROOMS);
+                  },
+                ),
+                const Divider(height: 1, indent: 16, endIndent: 16), // Optional separator
+                // --- ADD THIS MENU ITEM ---
+                _buildProfileMenuItem(
+                  context: context,
+                  icon: Icons.upload_file_rounded, // Choose a suitable icon
+                  text: 'Export Data Kegiatan',
+                  onTap: () {
+                    Get.toNamed(Routes.EXPORT); // Navigate to the new screen
                   },
                 ),
               ],

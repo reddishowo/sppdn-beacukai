@@ -2,6 +2,8 @@ import 'package:get/get.dart';
 
 import '../modules/add_activity/bindings/add_activity_binding.dart';
 import '../modules/add_activity/views/add_activity_view.dart';
+import '../modules/export/bindings/export_binding.dart';
+import '../modules/export/views/export_view.dart';
 import '../modules/home/bindings/home_binding.dart';
 import '../modules/home/views/home_view.dart';
 import '../modules/login/bindings/login_binding.dart';
@@ -57,6 +59,11 @@ class AppPages {
       name: _Paths.MANAGE_ROOMS,
       page: () => const ManageRoomsView(),
       binding: ManageRoomsBinding(),
+    ),
+    GetPage(
+      name: _Paths.EXPORT,
+      page: () => const ExportView(),
+      binding: ExportBinding(),
     ),
   ];
 }
