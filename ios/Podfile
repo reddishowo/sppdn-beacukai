@@ -1,7 +1,9 @@
-# Uncomment this line to define a global platform for your project
+# Set the Firebase SDK version. This forces all FlutterFire plugins to use the same version.
+$FirebaseSDKVersion = '10.25.0'
+
+# Standard Podfile content below
 platform :ios, '13.0'
 
-# CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
 project 'Runner', {
@@ -34,20 +36,8 @@ target 'Runner' do
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 
-# ------------ THIS IS THE FIX ------------
-# Add this entire block to resolve dependency conflicts.
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
-  end
-
-  # This part specifically resolves the GoogleUtilities version conflict
-  installer.pods_project.targets.each do |target|
-    if target.name == 'GoogleUtilities'
-      target.build_configurations.each do |config|
-        config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= ['$(inherited)']
-        config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] << 'PB_FIELD_32BIT=1'
-      end
-    end
   end
 end
